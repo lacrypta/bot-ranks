@@ -1,12 +1,8 @@
-import { Client, GatewayIntentBits, Events, Message } from "discord.js";
-require("dotenv").config();
+import { Client, GatewayIntentBits, Events, Message } from 'discord.js';
+require('dotenv').config();
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
 client.on(Events.MessageCreate, async (message: Message) => {
@@ -16,7 +12,7 @@ client.on(Events.MessageCreate, async (message: Message) => {
 });
 
 client.once(Events.ClientReady, () => {
-  console.log("Discord bot ready");
+  console.log('Discord bot ready');
 });
 
 client.login(process.env.DISCORD_BOT_TOKEN);
