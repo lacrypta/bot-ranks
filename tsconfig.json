@@ -1,3 +1,6 @@
 {
-  "extends": "@lacrypta/typescript-config/base.json"
+  "extends": "@lacrypta/typescript-config/base.json",
+  "compilerOptions": {
+    "verbatimModuleSyntax": false
+  }
 }
