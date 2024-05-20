@@ -34,11 +34,7 @@ console.info('Hello World');
 })();
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
 readyEvent(client);
@@ -46,7 +42,7 @@ readyEvent(client);
 client.on(Events.MessageCreate, newMessage);
 
 client.once(Events.ClientReady, () => {
-  console.log("Discord bot ready");
+  console.log('Discord bot ready');
 });
 
 client.login(process.env.DISCORD_BOT_TOKEN);

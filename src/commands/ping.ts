@@ -1,10 +1,10 @@
-import { CommandInteraction } from "discord.js";
+import { CommandInteraction } from 'discord.js';
 
 export const execute = async (interaction: CommandInteraction) => {
-  await interaction.reply("Pong!");
+  await interaction.reply('Pong!');
 };
 
 export const data = {
-  name: "ping",
-  description: "Replies with Pong!",
+  name: 'ping',
+  description: 'Replies with Pong!',
 };
