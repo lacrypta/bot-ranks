@@ -13,6 +13,15 @@ dependencies:
     version: 16.4.5
 
 devDependencies:
+  '@lacrypta/eslint-config':
+    specifier: ^1.0.0
+    version: 1.0.0
+  '@lacrypta/prettier-config':
+    specifier: ^1.0.0
+    version: 1.0.0
+  '@lacrypta/typescript-config':
+    specifier: ^1.0.0
+    version: 1.0.0
   '@types/node':
     specifier: ^20.12.12
     version: 20.12.12
@@ -308,6 +317,18 @@ packages:
     requiresBuild: true
     dev: true
     optional: true
+
+  /@lacrypta/eslint-config@1.0.0:
+    resolution: {integrity: sha512-zk0+j8Ieg6xG+SwJ60M5k9a5i0p4qNmkP2Z8ynksGJ9g7R8Be+IxcURgilxkPmQHXHq+Oj1OBUdLSWSvQR6veg==}
+    dev: true
+
+  /@lacrypta/prettier-config@1.0.0:
+    resolution: {integrity: sha512-RI6L9c4z3+JSLK6B+7Z6pk2/G1vWgAqHVA0cIgd5E7mjCq/URMeIUDxqzMI63FNWhsIBgjlDadkl6SAxd3qzKg==}
+    dev: true
+
+  /@lacrypta/typescript-config@1.0.0:
+    resolution: {integrity: sha512-0RRvpGhrIkGcwsDUUqHVNhucVCi3PnBxEsiLdb8ZJbKgRK7liis7IQgrj2jZyexV9ith7yOfseuJdCj+mdRdIw==}
+    dev: true
 
   /@sapphire/async-queue@1.5.2:
     resolution: {integrity: sha512-7X7FFAA4DngXUl95+hYbUF19bp1LGiffjJtu7ygrZrbdCSsdDDBaSjB7Akw0ZbOu6k0xpXyljnJ6/RZUvLfRdg==}
