@@ -1,5 +1,7 @@
 import { Client, GatewayIntentBits, Events, Message } from 'discord.js';
 import { PrismaTest } from './services/prismaTest';
+import readyEvent from './events/ready';
+import newMessage from './events/newMessage';
 require('dotenv').config();
 
 console.info('Hello World');
@@ -35,11 +37,9 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 });
 
-client.on(Events.MessageCreate, async (message: Message) => {
-  if (message.guildId == process.env.DISCORD_GUILD_ID) {
-    console.log(`Message received from ${message.author.tag}: ${message.content}`);
-  }
-});
+readyEvent(client);
+
+client.on(Events.MessageCreate, newMessage);
 
 client.once(Events.ClientReady, () => {
   console.log('Discord bot ready');
