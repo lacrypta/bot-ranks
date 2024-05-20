@@ -33,5 +33,5 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# prisma
-prisma/dev.db*
+# turbo
+.turbo
