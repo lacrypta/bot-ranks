@@ -1,3 +1,4 @@
 module.exports = {
-  extends: ['@lacrypta/eslint-config/library.js'],
+  root: true,
+  extends: ["@repo/eslint-config/index.js"],
 };
