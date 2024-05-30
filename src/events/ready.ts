@@ -1,7 +1,13 @@
-import { Client } from 'discord.js';
+import { BotEvent } from '../types/botEvents';
+import { deployCommands } from '../deployCommands';
 
-export default (client: Client) => {
-  client.on('ready', () => {
-    console.log(`Logged in as ${client.user?.tag}!`);
-  });
+const event: BotEvent = {
+  name: 'ready',
+  once: true,
+  execute: async () => {
+    deployCommands();
+    console.log('Discord bot ready!');
+  },
 };
+
+export default event;
