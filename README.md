@@ -66,13 +66,19 @@ We're create a bot in a Discord dashboard.
    cp .env.example .env
    ```
 
-2. Install the dependencies.
+2. Use the Node.js version specified in the `.nvmrc` file. (Install it if you don't have it installed yet.)
+
+   ```bash
+   nvm use
+   ```
+
+3. Install the dependencies.
 
    ```bash
    pnpm install
    ```
 
-3. Run the bot.
+4. Run the bot.
 
    ```bash
     pnpm dev
