@@ -11,6 +11,7 @@
    1. [Bot](#bot)
    2. [Environment](#environment)
    3. [Prisma](#prisma)
+2. [Contributors](#contributors)
 
 ---
 
@@ -94,3 +95,9 @@ You can run this command in separate terminal
 ```bash
 pnpm studio
 ```
+
+# Contributors
+
+<a href="https://github.com/lacrypta/bot-ranks/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=lacrypta/bot-ranks" />
+</a>
