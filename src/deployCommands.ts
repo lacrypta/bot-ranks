@@ -39,6 +39,9 @@ export async function deployCommands() {
     });
 
     console.log(`Successfully reloaded ${commandsList.length} application (/) commands.`);
+    for (const command of commandsList) {
+      console.log(`Deployed command: ${command.data.name}`);
+    }
   } catch (error) {
     console.error(error);
   }
