@@ -25,3 +25,11 @@ model Post {
   author    User    @relation(fields: [authorId], references: [id])
   authorId  Int
 }
+
+model RoleReaction {
+  guildId    Int
+  channelId  Int
+  messageId  Int  @id
+  roleId     Int?
+  reactionId Int?
+}
