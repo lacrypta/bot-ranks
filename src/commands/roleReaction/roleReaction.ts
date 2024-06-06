@@ -4,22 +4,17 @@ import {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ComponentType,
-  MessageReaction,
-  Role,
-  CacheType,
-  TextChannel,
   Message,
-  Options,
-  Client,
+  MessageReaction,
+  User,
 } from 'discord.js';
 import { Command } from './../../types/command';
 
+let message: Message | undefined = undefined;
+
 const roleReaction: Command = {
   data: new SlashCommandBuilder()
-    .setName('role_reaction')
+    .setName('role-reaction')
     .setDescription('Configure role reactions')
     .addStringOption((option) =>
       option
@@ -29,38 +24,67 @@ const roleReaction: Command = {
     ),
   execute: async (interaction: CommandInteraction) => {
     const messageId = interaction.options.get('message_id', true).value as string;
-    const message = await interaction.channel?.messages.fetch(messageId);
+    message = await interaction.channel?.messages.fetch(messageId);
 
-    // TODO: use roleList of setRanks command
+    // TODO: enviar a la base de datos el id del mensaje
+
+    /// Get role list ///
     const rolesList = interaction.guild?.roles.cache
       .filter((role) => role.name.toLowerCase().startsWith('rank'))
       .map((role) => ({
         label: role.name,
         value: role.id,
-      }));
-    // console.log('Roles:', rolesList);
-    // console.info(
-    //   'Role:',
-    //   interaction.guild?.roles.cache.find((role) => role.name.toLowerCase().startsWith('rank')),
-    // );
+      })); // TODO: use roleList of setRanks command
 
-    const options = rolesList!.map((role) =>
+    /// Create select menu ///
+    const roleOptions = rolesList!.map((role) =>
       new StringSelectMenuOptionBuilder().setLabel(role.label).setValue(role.value),
-    );
+    ); // Only necesary data
 
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('select-role')
+    const menuComponent = new StringSelectMenuBuilder()
+      .setCustomId('role-reaction')
       .setPlaceholder('Select a role')
-      .addOptions(options);
+      .addOptions(roleOptions); // Create select menu component
 
-    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+    const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuComponent); // Create select menu
 
+    /// Send message ///
     await interaction.reply({
       content: 'Select a role to assign with a reaction:',
-      components: [row],
+      components: [selectMenu],
       ephemeral: true,
     });
+
+    // TODO: call function to wait to execute indeed reaction message with db data
   },
 };
+
+export async function reactionMessage() {
+  if (message) {
+    try {
+      const reactionManager = message.reactions;
+      // console.log('Awaiting reaction:', reactionManager.message.reactions.cache);
+
+      eventEmitter.on('messageReactionAdd', async (reaction: MessageReaction, user: User) => {
+        if (message && reaction.message.id === message.id) {
+          try {
+            await message.react(reaction.emoji);
+            console.log(`[roleReactions.ts] Reacted to the message with ${reaction.emoji.name}`);
+          } catch (error) {
+            console.error('[roleReactions.ts] Failed to react to message:', error);
+          }
+        }
+      });
+      // - [x] wait user reaction
+      // - [x] get reaction
+      // - [x] react to message with same react
+      // - [ ] asign role to reaction
+    } catch (error) {
+      console.error('Failed to react to message:', error);
+    }
+  } else {
+    console.error('Message is null or undefined');
+  }
+}
 
 export default roleReaction;
