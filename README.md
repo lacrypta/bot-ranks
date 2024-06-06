@@ -88,11 +88,11 @@ We're create a bot in a Discord dashboard.
 
 #### Generate Prisma Migration
 
-1. Create initial database schema in database
+Create initial database schema in database
 
-   ```bash
-   pnpm prisma migrate dev --name init
-   ```
+```bash
+pnpm prisma migrate dev --name init
+```
 
 #### Database viewer
 
