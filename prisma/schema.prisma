@@ -14,6 +14,7 @@ model User {
   id    Int     @id @default(autoincrement())
   email String  @unique
   name  String?
+
   posts Post[]
 }
 
@@ -22,14 +23,49 @@ model Post {
   title     String
   content   String?
   published Boolean @default(false)
-  author    User    @relation(fields: [authorId], references: [id])
   authorId  Int
+
+  author User @relation(fields: [authorId], references: [id])
 }
 
-model RoleReaction {
-  guildId    Int
-  channelId  Int
-  messageId  Int  @id
-  roleId     Int?
-  reactionId Int?
+model Guild {
+  id             String    @id @default(uuid())
+  discordGuildId String    @map("discord_guild_id")
+  channels       Channel[] @relation
+
+  @@map("guild")
+}
+
+model Channel {
+  id               String @id @default(uuid())
+  discordChannelId String @map("discord_channel_id")
+  guildId          String @map("guild_id")
+
+  guild    Guild     @relation(fields: [guildId], references: [id])
+  messages Message[]
+
+  @@map("channel")
+}
+
+model Message {
+  id                   String @id @default(uuid())
+  discordMessageId     String @map("discord_message_id")
+  discordInteractionId String @map("discord_interaction_id")
+  channelId            String @map("channel_id")
+
+  channel          Channel           @relation(fields: [channelId], references: [id])
+  messageReactions MessageReaction[]
+
+  @@map("message")
+}
+
+model MessageReaction {
+  id             String  @id @default(uuid())
+  discordRoleId  String  @map("discord_role_id")
+  discordEmojiId String? @map("discord_emoji_id")
+  messageId      String  @map("message_id")
+
+  message Message @relation(fields: [messageId], references: [id])
+
+  @@map("message_reaction")
 }
