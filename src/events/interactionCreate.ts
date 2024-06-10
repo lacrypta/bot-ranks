@@ -1,6 +1,8 @@
 import { Interaction } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { ExtendedClient } from '../types/discordClient';
+import { prisma } from '../services/prismaClient';
+import { Message } from '@prisma/client';
 
 const event: BotEvent = {
   name: 'interactionCreate',
@@ -22,11 +24,23 @@ const event: BotEvent = {
     else if (interaction.isStringSelectMenu()) {
       /// /role-rection ///
       if (interaction.customId === 'role-reaction') {
+        const prismaMessage = await prisma.message.findMany({
+          where: {
+            discordInteractionId: interaction!.message!.interaction!.id,
+          },
+        });
+
         const selectedRoleId = interaction.values[0];
         const selectedRole = interaction.guild?.roles.cache.get(selectedRoleId!);
 
         if (selectedRole) {
           // TODO: enviar a la base de datos el id del rol con respecto al mensaje
+          const prismaMessageReaction = await prisma.messageReaction.create({
+            data: {
+              discordRoleId: selectedRoleId!,
+              messageId: prismaMessage[0]?.id!,
+            },
+          });
 
           await interaction.update({
             content: `You selected the role: ${selectedRole.name}.`,
