@@ -6,8 +6,12 @@
   "scripts": {
     "format": "prettier --write \"**/*.{ts,tsx,md,mdx}\"",
     "build": "tsc",
-    "studio": "prisma studio",
-    "dev": "nodemon --exec \"node -r esbuild-register ./src/index.ts\" -e .ts"
+    "dev": "nodemon --exec \"node -r esbuild-register ./src/index.ts\" -e .ts",
+    "//": "prisma commnads",
+    "generate": "prisma generate",
+    "reset": "prisma migrate reset",
+    "migrate": "prisma migrate dev --name init",
+    "studio": "prisma studio"
   },
   "prettier": "@lacrypta/prettier-config",
   "keywords": [],
