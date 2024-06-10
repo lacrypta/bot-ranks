@@ -1,12 +1,6 @@
 // Import Prisma Client
-import { PrismaClient } from '@prisma/client';
-
-// Use custom type
-import { User } from '../types/user';
-import { Post } from '../types/post';
-
-// Instantiate Prisma Client
-const prisma = new PrismaClient();
+import { prisma } from './prismaClient';
+import { User, Post } from '@prisma/client';
 
 export class PrismaTest {
   // Create User
@@ -26,6 +20,7 @@ export class PrismaTest {
   static async listUsers(): Promise<User[]> {
     console.info('Listing users...');
     const users = await prisma.user.findMany();
+
     return users;
   }
 
@@ -37,6 +32,7 @@ export class PrismaTest {
         email: email,
       },
     });
+
     return user;
   }
 

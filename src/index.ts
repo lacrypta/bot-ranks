@@ -1,48 +1,75 @@
-import { Client, GatewayIntentBits, Events, Message } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Interaction, Collection } from 'discord.js';
+import { ExtendedClient } from './types/discordClient';
+import { readdirSync } from 'fs';
+import { join } from 'path';
+
+import { BotEvent } from './types/botEvents';
 import { PrismaTest } from './services/prismaTest';
-import readyEvent from './events/ready';
-import newMessage from './events/newMessage';
+import { commandsList } from './deployCommands';
+import { Command } from './types/command';
+// import readyEvent from './events/ready';
+// import newMessage from './events/newMessage';
+
 require('dotenv').config();
 
 console.info('Hello World');
 
-(async () => {
-  // Generate random email
-  const testEmail = `${Math.random()}@sdfsdfd.com`;
+// (async () => {
+//   // Generate random email
+//   const testEmail = `${Math.random()}@sdfsdfd.com`;
 
-  // Test create user
-  await PrismaTest.createUser(testEmail);
+//   // Test create user
+//   await PrismaTest.createUser(testEmail);
 
-  // Test read users
-  const users = await PrismaTest.listUsers();
-  console.info('List Users:', users);
+//   // Test read users
+//   const users = await PrismaTest.listUsers();
+//   console.info('List Users:', users);
 
-  // Test find user by email
-  const user = await PrismaTest.findUserByEmail(testEmail);
-  console.info('User:', user);
+//   // Test find user by email
+//   const user = await PrismaTest.findUserByEmail(testEmail);
+//   console.info('User:', user);
 
-  // Create Post
-  const post = await PrismaTest.createPost('Hello World', 'This is a test post', user!.id);
-  console.info('Post:', post);
+//   // Create Post
+//   const post = await PrismaTest.createPost('Hello World', 'This is a test post', user!.id);
+//   console.info('Post:', post);
 
-  // Update Post
-  await PrismaTest.updatePost(post.id, 'Hello World Updated', 'This is an updated test post');
+//   // Update Post
+//   await PrismaTest.updatePost(post.id, 'Hello World Updated', 'This is an updated test post');
 
-  // Get posts
-  const userPosts = await PrismaTest.getUserPosts(user!.id);
-  console.info('User posts:', userPosts);
-})();
+//   // Get posts
+//   const userPosts = await PrismaTest.getUserPosts(user!.id);
+//   console.info('User posts:', userPosts);
+// })();
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-});
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
+  ],
+}) as ExtendedClient;
 
-readyEvent(client);
+const eventsPath = join(__dirname, 'events');
+const eventFiles = readdirSync(eventsPath);
 
-client.on(Events.MessageCreate, newMessage);
-
-client.once(Events.ClientReady, () => {
-  console.log('Discord bot ready');
-});
+for (const file of eventFiles) {
+  const filePath = join(eventsPath, file);
+  const event: BotEvent = require(filePath).default;
+  if (event.once) {
+    client.once(event.name, (...args) => event.execute(...args));
+    console.info(`Event ${event.name} loaded.`);
+  } else {
+    client.on(event.name, (...args) => event.execute(...args));
+    console.info(`Event ${event.name} loaded.`);
+  }
+}
 
 client.login(process.env.DISCORD_BOT_TOKEN);
+
+/// Commands ///
+// Load commands in client instance
+client.commands = new Collection();
+commandsList.forEach((command: Command) => {
+  client.commands.set(command.data.name, command);
+});
