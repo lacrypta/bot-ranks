@@ -5,7 +5,7 @@ import { join } from 'path';
 
 import { BotEvent } from './types/botEvents';
 import { PrismaTest } from './services/prismaTest';
-import { deployCommands, commandsList } from './deployCommands';
+import { commandsList } from './deployCommands';
 import { Command } from './types/command';
 // import readyEvent from './events/ready';
 // import newMessage from './events/newMessage';
@@ -73,25 +73,3 @@ client.commands = new Collection();
 commandsList.forEach((command: Command) => {
   client.commands.set(command.data.name, command);
 });
-
-// Listen for interaction events
-// client.on(Events.InteractionCreate, async (interaction: Interaction) => {
-//   if (!interaction.isChatInputCommand()) return;
-//   const command = client.commands.get(interaction.commandName);
-
-//   if (!command) {
-//     console.error(`No command matching ${interaction.commandName} was found.`);
-//     return;
-//   }
-
-//   try {
-//     await command.execute(interaction);
-//   } catch (error) {
-//     console.error(error);
-//     if (interaction.replied || interaction.deferred) {
-//       await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
-//     } else {
-//       await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-//     }
-//   }
-// });
