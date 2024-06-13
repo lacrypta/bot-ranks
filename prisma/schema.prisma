@@ -29,9 +29,10 @@ model Post {
 }
 
 model Guild {
-  id             String    @id @default(uuid())
-  discordGuildId String    @map("discord_guild_id")
-  channels       Channel[] @relation
+  id             String @id @default(uuid())
+  discordGuildId String @map("discord_guild_id")
+
+  channels Channel[] @relation
 
   @@map("guild")
 }
