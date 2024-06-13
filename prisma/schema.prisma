@@ -68,5 +68,5 @@ model MessageReactionRole {
 
   message Message @relation(fields: [messageId], references: [id])
 
-  @@map("message_reaction")
+  @@map("message_reaction_role")
 }
