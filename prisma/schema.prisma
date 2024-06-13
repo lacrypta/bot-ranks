@@ -51,7 +51,7 @@ model Channel {
 model Message {
   id                   String @id @default(uuid())
   discordMessageId     String @map("discord_message_id")
-  discordInteractionId String @map("discord_interaction_id")
+  discordCommandName String @map("discord_interaction_id")
   channelId            String @map("channel_id")
 
   channel          Channel           @relation(fields: [channelId], references: [id])
