@@ -102,6 +102,10 @@ You can run this command in separate terminal
 pnpm studio
 ```
 
+# TO-DO
+
+- [ ] Update README with prisma commands
+
 # Contributors
 
 <a href="https://github.com/lacrypta/bot-ranks/graphs/contributors">
