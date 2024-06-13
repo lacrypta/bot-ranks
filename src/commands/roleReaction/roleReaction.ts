@@ -5,17 +5,19 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   Message,
-  MessageReaction,
-  User,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js';
 import { Command } from './../../types/command';
 import { prisma } from '../../services/prismaClient';
+import { MessageReactionRole, Message as PrismaMessage } from '@prisma/client';
 
-let message: Message | undefined = undefined;
+let discordMessageInstance: Message | undefined;
+let discordInteraction: CommandInteraction;
 
 const roleReaction: Command = {
   data: new SlashCommandBuilder()
-    .setName('role-reaction')
+    .setName('role-reaction-command')
     .setDescription('Configure role reactions')
     .addStringOption((option) =>
       option
@@ -24,86 +26,153 @@ const roleReaction: Command = {
         .setRequired(true),
     ),
   execute: async (interaction: CommandInteraction) => {
-    const messageId = interaction.options.get('message_id', true).value as string;
-    message = await interaction.channel?.messages.fetch(messageId);
+    /// Get message from Discord ///
+    discordInteraction = interaction;
+    const discordMessageId = discordInteraction.options.get('message_id', true).value as string;
 
-    /// Get role list ///
-    const rolesList = interaction.guild?.roles.cache
-      .filter((role) => role.name.toLowerCase().startsWith('rank'))
-      .map((role) => ({
-        label: role.name,
-        value: role.id,
-      })); // TODO: use roleList of setRanks command
+    try {
+      discordMessageInstance = await discordInteraction.channel?.messages.fetch(discordMessageId);
+    } catch (error) {
+      console.error('Failed to fetch message:', error);
+      await discordInteraction.reply({
+        content: 'Message not found',
+        ephemeral: true,
+      });
+    }
 
-    /// Create select menu ///
-    const roleOptions = rolesList!.map((role) =>
-      new StringSelectMenuOptionBuilder().setLabel(role.label).setValue(role.value),
-    ); // Only necesary data
+    await selectMenu();
 
-    const menuComponent = new StringSelectMenuBuilder()
-      .setCustomId('role-reaction')
-      .setPlaceholder('Select a role')
-      .addOptions(roleOptions); // Create select menu component
+    /// Save data to database ///
+    // Create guild
+    try {
+      const prismaGuild = await prisma.guild.create({
+        data: {
+          discordGuildId: discordInteraction.guildId!,
+        },
+      });
+      // Create channel
+      const prismaChannel = await prisma.channel.create({
+        data: {
+          discordChannelId: discordInteraction.channelId!,
+          guildId: prismaGuild.id,
+        },
+      });
+      // Create message
+      await prisma.message.create({
+        data: {
+          discordMessageId: discordMessageId,
+          discordCommandName: discordInteraction.commandName,
+          channelId: prismaChannel.id,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to save data to database:', error);
+      await discordInteraction.reply({
+        content: 'Failed to save data to database',
+        ephemeral: true,
+      });
 
-    const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuComponent); // Create select menu
-
-    /// Send message ///
-    await interaction.reply({
-      content: 'Select a role to assign with a reaction:',
-      components: [selectMenu],
-      ephemeral: true,
-    });
-
-    const prismaGuild = await prisma.guild.create({
-      data: {
-        discordGuildId: interaction.guildId!,
-      },
-    });
-    const prismaChannel = await prisma.channel.create({
-      data: {
-        discordChannelId: interaction.channelId!,
-        guildId: prismaGuild.id,
-      },
-    });
-    const prismaMessage = await prisma.message.create({
-      data: {
-        discordMessageId: messageId,
-        discordInteractionId: interaction.id,
-        channelId: prismaChannel.id,
-      },
-    });
-
-    // TODO: call function to wait to execute indeed reaction message with db data
+      return;
+    }
   },
 };
 
-export async function makeRoleReaction() {
-  if (message) {
-    try {
-      const reactionManager = message.reactions;
-      // console.log('Awaiting reaction:', reactionManager.message.reactions.cache);
+/// Setup ///
+export async function reactionToMessage(_discordMessageId: string, _discordEmojiId: string) {
+  // Get message from database
+  const prismaMessage: PrismaMessage[] = await prisma.message.findMany({
+    where: {
+      discordMessageId: _discordMessageId,
+    },
+  });
 
-      // eventEmitter.on('messageReactionAdd', async (reaction: MessageReaction, user: User) => {
-      //   if (message && reaction.message.id === message.id) {
-      //     try {
-      //       await message.react(reaction.emoji);
-      //       console.log(`[roleReactions.ts] Reacted to the message with ${reaction.emoji.name}`);
-      //     } catch (error) {
-      //       console.error('[roleReactions.ts] Failed to react to message:', error);
-      //     }
-      //   }
-      // });
+  const prismaMessageReactionRole: MessageReactionRole[] = await prisma.messageReactionRole.findMany({
+    where: {
+      messageId: prismaMessage[0]!.id,
+    },
+  });
 
-      // - [x] wait user reaction
-      // - [x] get reaction
-      // - [x] react to message with same react
-      // - [ ] asign role to reaction
-    } catch (error) {
-      console.error('Failed to react to message:', error);
+  if (discordMessageInstance) {
+    for (const messageReactionRole of prismaMessageReactionRole) {
+      if (messageReactionRole.discordEmojiId === _discordEmojiId) {
+        try {
+          await discordMessageInstance.react(messageReactionRole.discordEmojiId!);
+        } catch (error) {
+          console.error('Failed to react to message:', error);
+        }
+      }
     }
   } else {
     console.error('Message is null or undefined');
   }
+}
+
+/// Give role to user ///
+export async function selectMenu() {
+  /// Role list and Send message ///
+  try {
+    //* TODO: use roleList of setRanks command
+    // Get roles list
+    const rolesList = discordInteraction.guild?.roles.cache
+      .filter((role) => role.name.toLowerCase().startsWith('rank'))
+      .map((role) => ({
+        label: role.name,
+        value: role.id,
+      }));
+
+    // Crete select menu options
+    const roleOptions: StringSelectMenuOptionBuilder[] = rolesList!.map((role) =>
+      new StringSelectMenuOptionBuilder().setLabel(role.label).setValue(role.value),
+    );
+
+    // Create select menu component
+    const menuComponent: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+      .setCustomId('role-reaction-command-select-menu')
+      .setPlaceholder('Select a role')
+      .addOptions(roleOptions);
+
+    // Create select menu
+    const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuComponent);
+
+    // Check if discordInteraction is after replied
+    if (!discordInteraction.replied) {
+      // Send message
+      await discordInteraction.reply({
+        content: 'Select a role to assign with a reaction:',
+        components: [selectMenu],
+        ephemeral: true,
+      });
+    } else {
+      // Create finish button
+      const finishButton = new ButtonBuilder()
+        .setCustomId('role-reaction-command-finish-button')
+        .setLabel('Finalize')
+        .setStyle(ButtonStyle.Primary);
+
+      // Create button row
+      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(finishButton);
+
+      await discordInteraction.editReply({
+        content: 'Select a role to assign with a reaction:',
+        components: [selectMenu, buttonRow], // TODO: sacar de la lista los roles que ya se eligieron
+      });
+    }
+  } catch (error) {
+    console.error('Failed to get roles list:', error);
+    await discordInteraction.reply({
+      content: 'Failed to get roles list',
+      ephemeral: true,
+    });
+
+    return;
+  }
+}
+
+export async function finalizeRoleReactionCommand() {
+  await discordInteraction.editReply({
+    content: 'Finalized role reaction command.\n\nYou can dissmis this message.',
+    components: [],
+  });
 }
 
 export default roleReaction;
