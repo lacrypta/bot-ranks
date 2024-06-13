@@ -60,7 +60,7 @@ model Message {
   @@map("message")
 }
 
-model MessageReaction {
+model MessageReactionRole {
   id             String  @id @default(uuid())
   discordRoleId  String  @map("discord_role_id")
   discordEmojiId String? @map("discord_emoji_id")
