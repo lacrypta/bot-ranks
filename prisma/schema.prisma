@@ -49,13 +49,13 @@ model Channel {
 }
 
 model Message {
-  id                   String @id @default(uuid())
-  discordMessageId     String @map("discord_message_id")
+  id                 String @id @default(uuid())
+  discordMessageId   String @map("discord_message_id")
   discordCommandName String @map("discord_interaction_id")
-  channelId            String @map("channel_id")
+  channelId          String @map("channel_id")
 
-  channel          Channel           @relation(fields: [channelId], references: [id])
-  messageReactions MessageReaction[]
+  channel               Channel               @relation(fields: [channelId], references: [id])
+  messageReactionsRoles MessageReactionRole[]
 
   @@map("message")
 }
