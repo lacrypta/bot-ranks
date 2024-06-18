@@ -1,9 +1,21 @@
-import { Interaction, Role } from 'discord.js';
+import {
+  Channel,
+  ChannelType,
+  GuildBasedChannel,
+  Interaction,
+  Message,
+  Role,
+  TextBasedChannel,
+  TextChannel,
+} from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { ExtendedClient } from '../types/discordClient';
 import { prisma } from '../services/prismaClient';
-import { Message, MessageReactionRole } from '@prisma/client';
+import { Message as PrismaMessage, Role as PrismaRole, ReactionButton } from '@prisma/client';
 import { finalizeRoleReactionCommand } from '../commands/roleReaction/roleReaction';
+import { addButtonToMessage } from '../commands/roleButton/roleButton';
+
+let discordMessageInstance: Message | null = null;
 
 const event: BotEvent = {
   name: 'interactionCreate',
@@ -24,9 +36,11 @@ const event: BotEvent = {
     /// Button ///
     //////////////
     else if (interaction.isButton()) {
-      //// /role-rection-commnad ///
+      /// /role-rection-commnad ///
       if (interaction.customId === 'role-reaction-command-finish-button') {
         finalizeRoleReactionCommand();
+      } /// End Of /role-rection-commnad ///
+
       /// /role-button-commnad ///
       else if (interaction.customId.startsWith('role-button-command-button-')) {
         const buttonId: string = interaction.customId;
@@ -72,6 +86,8 @@ const event: BotEvent = {
           }
         }
       } /// End Of /role-button-commnad ///
+    }
+
     //////////////////////////
     /// String Select Menu ///
     //////////////////////////
@@ -79,7 +95,7 @@ const event: BotEvent = {
       /// /role-rection-commnad ///
       if (interaction.customId === 'role-reaction-command-select-menu') {
         // Get message from database
-        let prismaMessage: Message[];
+        let prismaMessage: PrismaMessage[];
         try {
           prismaMessage = await prisma.message.findMany({
             where: {
@@ -97,16 +113,18 @@ const event: BotEvent = {
         const selectedRole: Role | undefined = interaction.guild!.roles.cache.get(selectedRoleId);
 
         if (selectedRole) {
-          try {
-            await prisma.messageReactionRole.create({
-              data: {
-                discordRoleId: selectedRoleId,
-                messageId: prismaMessage[0]!.id,
-              },
-            });
-          } catch (error) {
-            console.error('Failed to create messageReactionRole:', error);
-          }
+          let role: PrismaRole | null = await prisma.role.findUnique({
+            where: {
+              discordRoleId: selectedRoleId,
+            },
+          });
+
+          await prisma.messageReactionRole.create({
+            data: {
+              roleId: role!.id,
+              messageId: prismaMessage[0]!.id,
+            },
+          });
 
           await interaction.update({
             content: `You selected the role: ${selectedRole.name}.\n\nAdd reaction to message`,
@@ -118,6 +136,9 @@ const event: BotEvent = {
             components: [],
           });
         }
+      } /// End Of /role-rection-commnad ///
+    }
+
     ////////////////////
     /// Modal Submit ///
     ////////////////////
