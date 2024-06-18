@@ -10,7 +10,7 @@ import {
 } from 'discord.js';
 import { Command } from './../../types/command';
 import { prisma } from '../../services/prismaClient';
-import { MessageReactionRole, Message as PrismaMessage } from '@prisma/client';
+import { MessageReactionRole, Message as PrismaMessage, Role as PrismaRole } from '@prisma/client';
 
 let discordMessageInstance: Message | undefined;
 let discordInteraction: CommandInteraction;
@@ -38,6 +38,8 @@ const roleReaction: Command = {
         content: 'Message not found',
         ephemeral: true,
       });
+
+      return;
     }
 
     await selectMenu();
@@ -107,64 +109,63 @@ export async function reactionToMessage(_discordMessageId: string, _discordEmoji
   }
 }
 
-/// Give role to user ///
 export async function selectMenu() {
-  /// Role list and Send message ///
-  try {
-    //* TODO: use roleList of setRanks command
-    // Get roles list
-    const rolesList = discordInteraction.guild?.roles.cache
-      .filter((role) => role.name.toLowerCase().startsWith('rank'))
-      .map((role) => ({
-        label: role.name,
-        value: role.id,
-      }));
+  // Get roles list form database
+  let rolesList;
+  const prismaRoleList: PrismaRole[] | undefined = await prisma.role.findMany();
 
-    // Crete select menu options
-    const roleOptions: StringSelectMenuOptionBuilder[] = rolesList!.map((role) =>
-      new StringSelectMenuOptionBuilder().setLabel(role.label).setValue(role.value),
-    );
-
-    // Create select menu component
-    const menuComponent: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-      .setCustomId('role-reaction-command-select-menu')
-      .setPlaceholder('Select a role')
-      .addOptions(roleOptions);
-
-    // Create select menu
-    const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuComponent);
-
-    // Check if discordInteraction is after replied
-    if (!discordInteraction.replied) {
-      // Send message
-      await discordInteraction.reply({
-        content: 'Select a role to assign with a reaction:',
-        components: [selectMenu],
-        ephemeral: true,
-      });
-    } else {
-      // Create finish button
-      const finishButton = new ButtonBuilder()
-        .setCustomId('role-reaction-command-finish-button')
-        .setLabel('Finalize')
-        .setStyle(ButtonStyle.Primary);
-
-      // Create button row
-      const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(finishButton);
-
-      await discordInteraction.editReply({
-        content: 'Select a role to assign with a reaction:',
-        components: [selectMenu, buttonRow], // TODO: sacar de la lista los roles que ya se eligieron
-      });
-    }
-  } catch (error) {
-    console.error('Failed to get roles list:', error);
-    await discordInteraction.reply({
-      content: 'Failed to get roles list',
-      ephemeral: true,
+  if (prismaRoleList.length === 0) {
+    discordInteraction.reply({
+      content: 'Use `/set-rank` first.',
+      components: [],
     });
 
     return;
+  }
+
+  rolesList = prismaRoleList.map((role) => {
+    return {
+      label: role.discordRoleName,
+      value: role.discordRoleId,
+    };
+  });
+
+  // Crete select menu options
+  const roleOptions: StringSelectMenuOptionBuilder[] = rolesList!.map((role) =>
+    new StringSelectMenuOptionBuilder().setLabel(role.label).setValue(role.value),
+  );
+
+  // Create select menu component
+  const menuComponent: StringSelectMenuBuilder = new StringSelectMenuBuilder()
+    .setCustomId('role-reaction-command-select-menu')
+    .setPlaceholder('Select a role')
+    .addOptions(roleOptions);
+
+  // Create select menu
+  const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuComponent);
+
+  // Check if discordInteraction is after replied
+  if (!discordInteraction.replied) {
+    // Send message
+    await discordInteraction.reply({
+      content: 'Select a role to assign with a reaction:',
+      components: [selectMenu],
+      ephemeral: true,
+    });
+  } else {
+    // Create finish button
+    const finishButton = new ButtonBuilder()
+      .setCustomId('role-reaction-command-finish-button')
+      .setLabel('Finalize')
+      .setStyle(ButtonStyle.Primary);
+
+    // Create button row
+    const buttonRow = new ActionRowBuilder<ButtonBuilder>().addComponents(finishButton);
+
+    await discordInteraction.editReply({
+      content: 'Select a role to assign with a reaction:',
+      components: [selectMenu, buttonRow], // TODO: sacar de la lista los roles que ya se eligieron
+    });
   }
 }
 
