@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, CommandInteraction, GuildMemberRoleManager, CacheType } from 'discord.js';
 import { Command } from '../../types/command';
+import { prisma } from '../../services/prismaClient';
 
 const setRanks: Command = {
   data: new SlashCommandBuilder()
@@ -26,21 +27,22 @@ const setRanks: Command = {
     // Validar si se encontraron roles con el prefijo especificado
     if (!roles || roles.size === 0) {
       await interaction.reply({ content: 'No se encontraron roles con el prefijo especificado.', ephemeral: true });
+
       return;
+    } else {
+      roles.forEach(async (role) => {
+        await prisma.role.create({
+          data: {
+            discordRoleId: role.id,
+            discordRoleName: role.name,
+          },
+        });
+      });
     }
-
-    // Almacenar los roles encontrados para su posterior uso en el sistema de niveles
-    // Puedes guardarlos en una base de datos, en una variable global, o en cualquier otro lugar según tus necesidades
-
-    // Ejemplo: Almacenar los IDs de los roles en un array
-    const roleIDs = roles.map((role) => role.id);
-
-    // Ejemplo: Guardar los IDs de los roles en una base de datos o archivo
-    // Aquí puedes usar tu lógica para guardar los IDs en una base de datos o archivo
 
     // Respondemos al usuario confirmando que se han encontrado y almacenado los roles
     await interaction.reply({
-      content: `Se encontraron y almacenaron ${roles.size} roles con el prefijo "${prefix.value as string}".\n**Son los siguientes:**\n- ${roles.map((role) => role.name).join('\n- ')}`,
+      content: `Se encontraron y almacenaron ${roles.size} roles con el prefijo "${prefix.value as string}".\n**Son los siguientes:**\n- ${roles.map((role) => role.id + ' - ' + role.name).join('\n- ')}`,
       ephemeral: true,
     });
   },
