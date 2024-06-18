@@ -80,3 +80,14 @@ model ReactionButton {
 
   @@map("reaction_button")
 }
+
+model Role {
+  id              String @id @default(uuid())
+  discordRoleId   String @unique @map("discord_role_id")
+  discordRoleName String @map("discord_role_name")
+
+  MessageReactionRole MessageReactionRole[]
+  ReactionButton      ReactionButton[]
+
+  @@map("role")
+}
