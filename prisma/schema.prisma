@@ -70,3 +70,13 @@ model MessageReactionRole {
 
   @@map("message_reaction_role")
 }
+
+model ReactionButton {
+  id              String @id @default(uuid())
+  discordButtonId String @map("discord_button_id")
+  roleId          String @map("role_id")
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@map("reaction_button")
+}
