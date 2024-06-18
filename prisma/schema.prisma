@@ -62,11 +62,12 @@ model Message {
 
 model MessageReactionRole {
   id             String  @id @default(uuid())
-  discordRoleId  String  @map("discord_role_id")
+  roleId         String  @map("discord_role_id")
   discordEmojiId String? @map("discord_emoji_id")
   messageId      String  @map("message_id")
 
   message Message @relation(fields: [messageId], references: [id])
+  role    Role    @relation(fields: [roleId], references: [id])
 
   @@map("message_reaction_role")
 }
