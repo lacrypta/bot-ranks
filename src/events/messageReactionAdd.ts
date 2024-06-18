@@ -1,7 +1,7 @@
 import { MessageReaction, User } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { prisma } from '../services/prismaClient';
-import { Message, MessageReactionRole } from '@prisma/client';
+import { Message, MessageReactionRole, Role as PrismaRole } from '@prisma/client';
 import { reactionToMessage, selectMenu } from '../commands/roleReaction/roleReaction';
 
 const event: BotEvent = {
@@ -46,6 +46,7 @@ const event: BotEvent = {
 
         /// Setup if not exists
         if (prismaMessageReactionRoleEmpty.length > 0) {
+          console.log('[messageReactionAdd.ts] Setup messageReactionRole');
           await prisma.messageReactionRole.updateMany({
             where: {
               messageId: message.id,
@@ -63,6 +64,7 @@ const event: BotEvent = {
         }
         /// Give role to user
         else {
+          console.log('[messageReactionAdd.ts] Give role to user');
           const guild = reaction.message.guild!;
           const member = guild.members.cache.get(user.id);
 
@@ -77,13 +79,35 @@ const event: BotEvent = {
                 },
               });
 
-              const prismaRoleId: string = prismaMessageReactionRole[0]!.discordRoleId!;
+              const roleId: string = prismaMessageReactionRole[0]!.roleId!;
+              const prismaRole = await prisma.role.findUnique({
+                where: {
+                  id: roleId,
+                },
+              });
 
               // Give role to user
               try {
-                const role = guild.roles.cache.get(prismaRoleId);
+                const role = guild.roles.cache.get(prismaRole!.discordRoleId);
 
-                member!.roles.add(role!);
+                if (role) {
+                  if (member!.roles.cache.has(role.id)) {
+                    await member!.roles.remove(role);
+                  } else {
+                    await member!.roles.add(role);
+                  }
+
+                  if (member!.roles.cache.has(role.id)) {
+                    await member!.roles.remove(role);
+
+                    //* TODO - send message to user
+                  } else {
+                    await member!.roles.add(role);
+
+                    //* TODO - send message to user
+                  }
+                }
+
                 console.log(`[messageReactionAdd.ts] Gave role ${role!.name} to ${user.tag}`);
 
                 return;
