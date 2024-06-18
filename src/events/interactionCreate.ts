@@ -27,7 +27,51 @@ const event: BotEvent = {
       //// /role-rection-commnad ///
       if (interaction.customId === 'role-reaction-command-finish-button') {
         finalizeRoleReactionCommand();
-      }
+      /// /role-button-commnad ///
+      else if (interaction.customId.startsWith('role-button-command-button-')) {
+        const buttonId: string = interaction.customId;
+        let prismaRole: PrismaRole[] | undefined;
+
+        try {
+          const prismaReactionButton: ReactionButton[] | undefined = await prisma.reactionButton.findMany({
+            where: {
+              discordButtonId: buttonId,
+            },
+          });
+          prismaRole = await prisma.role.findMany({
+            where: {
+              id: prismaReactionButton[0]!.roleId,
+            },
+          });
+        } catch (error) {
+          console.error('Failed to get role from database:', error);
+        }
+
+        if (prismaRole) {
+          const role: Role | undefined = interaction.guild!.roles.cache.get(prismaRole[0]!.discordRoleId);
+
+          if (role) {
+            const member = interaction.guild?.members.cache.get(interaction.user.id);
+            if (member) {
+              if (member.roles.cache.has(role.id)) {
+                await member.roles.remove(role);
+
+                await interaction.reply({
+                  content: `You have been removed from the role: ${role.name}`,
+                  ephemeral: true,
+                });
+              } else {
+                await member.roles.add(role);
+
+                await interaction.reply({
+                  content: `You have been given the role: ${role.name}`,
+                  ephemeral: true,
+                });
+              }
+            }
+          }
+        }
+      } /// End Of /role-button-commnad ///
     //////////////////////////
     /// String Select Menu ///
     //////////////////////////
@@ -77,6 +121,32 @@ const event: BotEvent = {
     ////////////////////
     /// Modal Submit ///
     ////////////////////
+    else if (interaction.isModalSubmit()) {
+      /// /role-button-commnad ///
+      if (interaction.customId === 'role-button-command-modal') {
+        // Setup
+        if (interaction.fields.fields.firstKey() === 'role-button-command-text-input-message') {
+          // Get channel
+          const channelId: string = interaction.channelId!;
+          const channel: GuildBasedChannel | undefined = interaction.guild!.channels.cache.get(channelId);
+          const textInputMessage: string = interaction.fields.fields.first()!.value!;
+
+          // Send message
+          if (channel?.type === ChannelType.GuildText) {
+            try {
+              await interaction.deferUpdate(); // Acknowledge the interaction
+            } catch (error) {
+              console.error('Failed defer modal message', error);
+            }
+
+            discordMessageInstance = await channel!.send(textInputMessage);
+
+            await addButtonToMessage(discordMessageInstance.id);
+          }
+        }
+      } /// End Of /role-button-commnad ///
+    }
+
     /////////////////////////////////////
     /// Interaction is not implemented //
     //////////////////////////////////////
