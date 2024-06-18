@@ -11,22 +11,26 @@ const event: BotEvent = {
   execute: async (interaction: Interaction) => {
     const client = interaction.client as ExtendedClient;
 
+    /////////////////////
     /// Slash Command ///
+    /////////////////////
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName); // Get command from collection
       if (!command) return; // If command doesn't exist, return
       command.execute(interaction); // If command exist, execute it
     }
 
+    //////////////
     /// Button ///
+    //////////////
     else if (interaction.isButton()) {
       //// /role-rection-commnad ///
       if (interaction.customId === 'role-reaction-command-finish-button') {
         finalizeRoleReactionCommand();
       }
-    }
-
+    //////////////////////////
     /// String Select Menu ///
+    //////////////////////////
     else if (interaction.isStringSelectMenu()) {
       /// /role-rection-commnad ///
       if (interaction.customId === 'role-reaction-command-select-menu') {
@@ -70,10 +74,12 @@ const event: BotEvent = {
             components: [],
           });
         }
-      }
-    }
-
-    /// Don't implemented String Select Menu ///
+    ////////////////////
+    /// Modal Submit ///
+    ////////////////////
+    /////////////////////////////////////
+    /// Interaction is not implemented //
+    //////////////////////////////////////
     else {
       console.log('Interaction is not implemented.');
     }
