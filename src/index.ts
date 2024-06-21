@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, Interaction, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, Events, Interaction, Collection, GuildMember } from 'discord.js';
 import { ExtendedClient } from './types/discordClient';
 import { readdirSync } from 'fs';
 import { join } from 'path';
@@ -46,6 +46,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessageReactions,
   ],
 }) as ExtendedClient;
