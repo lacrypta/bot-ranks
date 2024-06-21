@@ -42,7 +42,7 @@ const event: BotEvent = {
       } /// End Of /role-rection-commnad ///
 
       /// /role-button-commnad ///
-      else if (interaction.customId.startsWith('role-button-command-button-')) {
+      if (interaction.customId.startsWith('role-button-command-button-')) {
         const buttonId: string = interaction.customId;
         let prismaRole: PrismaRole[] | undefined;
 
