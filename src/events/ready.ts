@@ -5,8 +5,9 @@ const event: BotEvent = {
   name: 'ready',
   once: true,
   execute: async () => {
-    deployCommands();
-    console.log('Discord bot ready!');
+    await deployCommands();
+
+    console.log('\x1b[37m\x1b[42m%s\x1b[0m', 'Discord bot ready!');
   },
 };
 
