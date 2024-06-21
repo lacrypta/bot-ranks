@@ -5,8 +5,9 @@ import {
   Interaction,
   Message,
   Role,
-  TextBasedChannel,
-  TextChannel,
+  EmbedBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { ExtendedClient } from '../types/discordClient';
@@ -14,6 +15,8 @@ import { prisma } from '../services/prismaClient';
 import { Message as PrismaMessage, Role as PrismaRole, ReactionButton } from '@prisma/client';
 import { finalizeRoleReactionCommand } from '../commands/roleReaction/roleReaction';
 import { addButtonToMessage } from '../commands/roleButton/roleButton';
+import { ActionRowBuilder } from '@discordjs/builders';
+import { createAndSendMessagePadrinoProfile, modalMenu } from '../commands/padrino/helpers';
 
 let discordMessageInstance: Message | null = null;
 
@@ -86,6 +89,17 @@ const event: BotEvent = {
           }
         }
       } /// End Of /role-button-commnad ///
+
+      if (interaction.customId === 'ser-padrino-command-edit-button') {
+        await modalMenu(interaction);
+      }
+
+      if (interaction.customId === 'ser-padrino-command-confirm-button') {
+        await interaction.update({
+          content: '# Tu perfil de Padrino\n> Confirmado',
+          components: [],
+        });
+      }
     }
 
     //////////////////////////
@@ -166,6 +180,11 @@ const event: BotEvent = {
           }
         }
       } /// End Of /role-button-commnad ///
+
+      /// /ser-padrino-command ///
+      if (interaction.customId === 'ser-padrino-command-modal') {
+        await createAndSendMessagePadrinoProfile(interaction);
+      }
     }
 
     /////////////////////////////////////
