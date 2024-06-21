@@ -92,3 +92,10 @@ model Role {
 
   @@map("role")
 }
+
+model Padrino {
+  id               String @id @default(uuid())
+  discordUserId    String @unique @map("discord_user_id")
+  shortDescription String @map("short_description")
+  longDescription  String @map("long_description")
+}
