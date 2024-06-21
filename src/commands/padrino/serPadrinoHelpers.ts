@@ -12,7 +12,7 @@ import {
   User,
 } from 'discord.js';
 import { prisma } from '../../services/prismaClient';
-import { Guild, Padrino } from '@prisma/client';
+import { Member, Padrino } from '@prisma/client';
 
 async function modalMenu(discordInteraction: CommandInteraction | ButtonInteraction) {
   try {
@@ -94,11 +94,17 @@ async function createAndSendMessagePadrinoProfile(discordInteraction: ModalSubmi
   }
 }
 
-async function createPadrinoProfile(_discordUserId: string, _shortDescription: string, _longDescription: string) {
+async function createPadrinoProfile(_discordMemberId: string, _shortDescription: string, _longDescription: string) {
   try {
+    const member = await prisma.member.findUnique({
+      where: {
+        discordMemeberId: _discordMemberId,
+      },
+    });
+
     const padrino = await prisma.padrino.create({
       data: {
-        discordUserId: _discordUserId,
+        memberId: member!.id,
         shortDescription: _shortDescription,
         longDescription: _longDescription,
       },
@@ -110,42 +116,51 @@ async function createPadrinoProfile(_discordUserId: string, _shortDescription: s
   }
 }
 
-async function editPadrinoProfile(_prismaId: string, _shortDescription: string, _longDescription: string) {
-  // Create the data object dynamically based on non-empty inputs
-  const data: { shortDescription?: string; longDescription?: string } = {};
+async function editPadrinoProfile(_prismaPadrinoId: string, _shortDescription: string, _longDescription: string) {
+  try {
+    // Create the data object dynamically based on non-empty inputs
+    const data: { shortDescription?: string; longDescription?: string } = {};
 
-  if (_shortDescription !== '') {
-    data.shortDescription = _shortDescription;
-  }
+    if (_shortDescription !== '') {
+      data.shortDescription = _shortDescription;
+    }
 
-  if (_longDescription !== '') {
-    data.longDescription = _longDescription;
-  }
+    if (_longDescription !== '') {
+      data.longDescription = _longDescription;
+    }
 
-  // Update only if there's something to update
-  if (Object.keys(data).length > 0) {
-    const padrino = await prisma.padrino.update({
-      where: {
-        id: _prismaId,
-      },
-      data: data,
-    });
-  } else {
-    throw new Error('No valid fields to update Padrino.');
+    // Update only if there's something to update
+    if (Object.keys(data).length > 0) {
+      await prisma.padrino.update({
+        where: {
+          id: _prismaPadrinoId,
+        },
+        data: data,
+      });
+    } else {
+      throw new Error('No valid fields to update Padrino.');
+    }
+  } catch (error) {
+    console.error('Failed to edit Padrino:', error);
   }
 }
 
-async function createOrEditPadrinoProfile(userId: string, shortDescription: string, longDescription: string) {
+async function createOrEditPadrinoProfile(_discordMemberId: string, shortDescription: string, longDescription: string) {
+  const prismaMember: Member | null = await prisma.member.findUnique({
+    where: {
+      discordMemeberId: _discordMemberId,
+    },
+  });
   const prismaPadrino: Padrino | null = await prisma.padrino.findUnique({
     where: {
-      discordUserId: userId,
+      memberId: prismaMember!.id,
     },
   });
 
-  if (prismaPadrino) {
+  if (prismaMember && prismaPadrino) {
     await editPadrinoProfile(prismaPadrino.id, shortDescription, longDescription);
   } else {
-    await createPadrinoProfile(userId, shortDescription, longDescription);
+    await createPadrinoProfile(_discordMemberId, shortDescription, longDescription);
   }
 }
 

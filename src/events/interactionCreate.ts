@@ -16,7 +16,8 @@ import { Message as PrismaMessage, Role as PrismaRole, ReactionButton } from '@p
 import { finalizeRoleReactionCommand } from '../commands/roleReaction/roleReaction';
 import { addButtonToMessage } from '../commands/roleButton/roleButton';
 import { ActionRowBuilder } from '@discordjs/builders';
-import { createAndSendMessagePadrinoProfile, modalMenu } from '../commands/padrino/helpers';
+import { createAndSendMessagePadrinoProfile, modalMenu } from '../commands/padrino/serPadrinoHelpers';
+import { confirmPadrino, createSelectPadrino } from '../commands/padrino/obtenerPadrinoHelpers';
 
 let discordMessageInstance: Message | null = null;
 
@@ -90,6 +91,7 @@ const event: BotEvent = {
         }
       } /// End Of /role-button-commnad ///
 
+      /// /ser-padrino-command ///
       if (interaction.customId === 'ser-padrino-command-edit-button') {
         await modalMenu(interaction);
       }
@@ -99,7 +101,19 @@ const event: BotEvent = {
           content: '# Tu perfil de Padrino\n> Confirmado',
           components: [],
         });
-      }
+      } /// End Of /ser-padrino-command ///
+
+      /// /obtener-padrino-command ///
+      if (interaction.customId.startsWith('obtener-padrino-command-confirm-button-id:')) {
+        const prismaPadrinoId: string = interaction.customId.split(':')[1]!;
+
+        await confirmPadrino(prismaPadrinoId, interaction.user.id);
+
+        await interaction.update({
+          content: '# Padrino confirmado! :white_check_mark:',
+          components: [],
+        });
+      } /// End Of /obtener-padrino-command ///
     }
 
     //////////////////////////
@@ -151,6 +165,14 @@ const event: BotEvent = {
           });
         }
       } /// End Of /role-rection-commnad ///
+
+      /// /obtener-padrino-command ///
+      if (interaction.customId === 'obtener-padrino-command-select-menu') {
+        // Get selected padrino
+        const selectedPadrinoMemberId: string = interaction.values[0]!;
+
+        await createSelectPadrino(interaction, selectedPadrinoMemberId);
+      } /// End Of /obtener-padrino-command ///
     }
 
     ////////////////////

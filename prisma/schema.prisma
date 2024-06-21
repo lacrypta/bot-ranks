@@ -28,11 +28,12 @@ model Post {
   author User @relation(fields: [authorId], references: [id])
 }
 
+/// Server models ///
 model Guild {
   id             String @id @default(uuid())
   discordGuildId String @map("discord_guild_id")
 
-  channels Channel[] @relation
+  channels Channel[]
 
   @@map("guild")
 }
@@ -93,9 +94,33 @@ model Role {
   @@map("role")
 }
 
+/// Members models ///
+
+model Member {
+  // Basic
+  id                           String  @id @default(uuid())
+  discordMemeberId             String  @unique @map("discord_user_id")
+  discordDisplayName           String  @map("discord_display_name")
+  discordProfilePicture        String  @map("discord_avatar")
+  guildId                      String  @map("guild_id")
+  // TODO Level 
+  discordTemporalLevel         String? @map("discord_temporal_level")
+  discordTemporalLevelCooldown String? @map("discord_temporal_level_cooldown")
+  // WIP Padrino
+  myPadrinoId                  String? @map("my_padrino_id")
+
+  padrinoProfile Padrino? @relation(fields: [myPadrinoId], references: [id])
+
+  @@map("member")
+}
+
 model Padrino {
   id               String @id @default(uuid())
-  discordUserId    String @unique @map("discord_user_id")
+  memberId         String @unique @map("member_id")
   shortDescription String @map("short_description")
   longDescription  String @map("long_description")
+
+  Member Member[]
+
+  @@map("padrino")
 }
