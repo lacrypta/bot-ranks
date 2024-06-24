@@ -104,8 +104,9 @@ model Member {
   discordProfilePicture        String  @map("discord_avatar")
   guildId                      String  @map("guild_id")
   // TODO Level 
-  discordTemporalLevel         String? @map("discord_temporal_level")
-  discordTemporalLevelCooldown String? @map("discord_temporal_level_cooldown")
+  discordTemporalLevelXp       String  @map("discord_temporal_level_xp")
+  discordTemporalLevel         String  @map("discord_temporal_level")
+  discordTemporalLevelCooldown String  @map("discord_temporal_level_cooldown")
   // WIP Padrino
   myPadrinoId                  String? @map("my_padrino_id")
 

@@ -47,6 +47,9 @@ async function upsertMember(member: GuildMember, guildId: string) {
         discordDisplayName: member.displayName,
         discordProfilePicture: member.user.displayAvatarURL(),
         guildId: guildId,
+        discordTemporalLevelXp: '0',
+        discordTemporalLevel: '0',
+        discordTemporalLevelCooldown: Date.now().toString(),
       },
     });
   } catch (error) {
