@@ -1,8 +1,10 @@
+import { LevelUpStatus } from './../services/temporalLevel';
 import { MessageReaction, User } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { prisma } from '../services/prismaClient';
 import { Message, MessageReactionRole, Role as PrismaRole } from '@prisma/client';
 import { reactionToMessage, selectMenu } from '../commands/roleReaction/roleReaction';
+import { addXpReaction } from '../services/temporalLevel';
 
 const event: BotEvent = {
   name: 'messageReactionAdd',
@@ -15,6 +17,35 @@ const event: BotEvent = {
         console.error('Something went wrong when fetching the message:', error);
 
         return;
+      }
+    }
+
+    const levelUpStatus = await addXpReaction(reaction, user);
+
+    if (!levelUpStatus) {
+      console.error('Failed to add xp to member');
+    } else {
+      if (levelUpStatus['reactionAuthor']) {
+        if (levelUpStatus['reactionAuthor'].canLevelUp) {
+          await reaction.message.channel.send(
+            `Felicitaciones <@${user.id}>! subiste al nivel ${levelUpStatus['reactionAuthor'].level}!`,
+          );
+        } else {
+          await reaction.message.channel.send(
+            `<@${user.id}>! subiste ${levelUpStatus['reactionAuthor'].xpRemaining} puntos de experiencia **por reaccionar**`,
+          );
+        }
+      }
+      if (levelUpStatus['messageAuthor']) {
+        if (levelUpStatus['messageAuthor'].canLevelUp) {
+          await reaction.message.channel.send(
+            `Felicitaciones <@${reaction.message.author?.id}>! subiste al nivel ${levelUpStatus['messageAuthor'].level}!`,
+          );
+        } else {
+          await reaction.message.channel.send(
+            `<@${reaction.message.author?.id}>! subiste ${levelUpStatus['messageAuthor'].xpRemaining} puntos de experiencia **por recibir una reaccion**`,
+          );
+        }
       }
     }
 

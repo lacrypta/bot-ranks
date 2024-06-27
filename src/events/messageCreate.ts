@@ -1,6 +1,6 @@
-import { GuildMember, Message, User } from 'discord.js';
+import { Message } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
-import { addXp } from '../services/temporalLevel';
+import { LevelUpStatus, addXpMessage } from '../services/temporalLevel';
 
 const event: BotEvent = {
   name: 'messageCreate',
@@ -8,9 +8,17 @@ const event: BotEvent = {
   execute: async (message: Message) => {
     if (message.author.bot) return;
 
-    const currentXp: number | undefined = await addXp(message.member!.id, 1);
+    const LevelUpStatus: LevelUpStatus | undefined = await addXpMessage(message);
 
-    console.log(`Member ${message.member!.displayName} has ${currentXp} xp.`);
+    if (LevelUpStatus) {
+      if (LevelUpStatus.canLevelUp) {
+        await message.channel.send(`Felicitacoines <@${message.author.id}>! subiste al nivel ${LevelUpStatus.level}!`);
+      } else {
+        await message.channel.send(
+          `<@${message.author.id}> ganaste ${LevelUpStatus.xpRemaining} puntos de experiencia!`,
+        );
+      }
+    }
   },
 };
 
