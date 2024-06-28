@@ -10,38 +10,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+// model User {
+//   id    Int     @id @default(autoincrement())
+//   email String  @unique
+//   name  String?
 
-  posts Post[]
-}
+//   posts Post[]
+// }
 
-model Post {
-  id        Int     @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean @default(false)
-  authorId  Int
+// model Post {
+//   id        Int     @id @default(autoincrement())
+//   title     String
+//   content   String?
+//   published Boolean @default(false)
+//   authorId  Int
 
-  author User @relation(fields: [authorId], references: [id])
-}
+//   author User @relation(fields: [authorId], references: [id])
+// }
 
 /// Server models ///
 model Guild {
   id             String @id @default(uuid())
-  discordGuildId String @map("discord_guild_id")
+  discordGuildId String @unique @map("discord_guild_id")
 
   channels Channel[]
+  Role     Role[]
+  Member   Member[]
 
   @@map("guild")
 }
 
 model Channel {
   id               String @id @default(uuid())
-  discordChannelId String @map("discord_channel_id")
   guildId          String @map("guild_id")
+  discordChannelId String @unique @map("discord_channel_id")
 
   guild    Guild     @relation(fields: [guildId], references: [id])
   messages Message[]
@@ -50,10 +52,10 @@ model Channel {
 }
 
 model Message {
-  id                 String @id @default(uuid())
-  discordMessageId   String @map("discord_message_id")
-  discordCommandName String @map("discord_interaction_id")
-  channelId          String @map("channel_id")
+  id                 String  @id @default(uuid())
+  channelId          String  @map("channel_id")
+  discordMessageId   String  @unique @map("discord_message_id")
+  discordCommandName String? @map("discord_command_name")
 
   channel               Channel               @relation(fields: [channelId], references: [id])
   messageReactionsRoles MessageReactionRole[]
@@ -61,11 +63,24 @@ model Message {
   @@map("message")
 }
 
+model Role {
+  id              String @id @default(uuid())
+  guildId         String @map("guild_id")
+  discordRoleId   String @unique @map("discord_role_id")
+  discordRoleName String @map("discord_role_name")
+
+  guild               Guild                 @relation(fields: [guildId], references: [id])
+  MessageReactionRole MessageReactionRole[]
+  ReactionButton      ReactionButton[]
+
+  @@map("role")
+}
+
 model MessageReactionRole {
   id             String  @id @default(uuid())
+  messageId      String  @map("message_id")
   roleId         String  @map("discord_role_id")
   discordEmojiId String? @map("discord_emoji_id")
-  messageId      String  @map("message_id")
 
   message Message @relation(fields: [messageId], references: [id])
   role    Role    @relation(fields: [roleId], references: [id])
@@ -75,41 +90,30 @@ model MessageReactionRole {
 
 model ReactionButton {
   id              String @id @default(uuid())
-  discordButtonId String @map("discord_button_id")
   roleId          String @map("role_id")
+  discordButtonId String @map("discord_button_id")
 
   role Role @relation(fields: [roleId], references: [id])
 
   @@map("reaction_button")
 }
 
-model Role {
-  id              String @id @default(uuid())
-  discordRoleId   String @unique @map("discord_role_id")
-  discordRoleName String @map("discord_role_name")
-
-  MessageReactionRole MessageReactionRole[]
-  ReactionButton      ReactionButton[]
-
-  @@map("role")
-}
-
 /// Members models ///
-
 model Member {
   // Basic
   id                           String  @id @default(uuid())
+  guildId                      String  @map("guild_id")
   discordMemeberId             String  @unique @map("discord_user_id")
   discordDisplayName           String  @map("discord_display_name")
   discordProfilePicture        String  @map("discord_avatar")
-  guildId                      String  @map("guild_id")
-  // TODO Level 
+  // Level 
   discordTemporalLevelXp       Int     @map("discord_temporal_level_xp")
   discordTemporalLevel         Int     @map("discord_temporal_level")
   discordTemporalLevelCooldown String  @map("discord_temporal_level_cooldown")
-  // WIP Padrino
+  // Padrino
   myPadrinoId                  String? @map("my_padrino_id")
 
+  guild          Guild    @relation(fields: [guildId], references: [id])
   padrinoProfile Padrino? @relation(fields: [myPadrinoId], references: [id])
 
   @@map("member")
