@@ -1,48 +1,41 @@
-import { SlashCommandBuilder, CommandInteraction, GuildMemberRoleManager, CacheType } from 'discord.js';
+import { Collection, CommandInteraction, CommandInteractionOptionResolver, Role } from 'discord.js';
+import { SlashCommandBuilder } from '@discordjs/builders';
 import { Command } from '../../types/command';
-import { prisma } from '../../services/prismaClient';
+import { cacheService } from '../../services/cache';
 
 const setRanks: Command = {
   data: new SlashCommandBuilder()
     .setName('set-ranks')
     .setDescription('Setup ranks')
     .addStringOption((option) =>
-      option.setName('prefix').setDescription('Prefix of roles to search').setRequired(true),
-    ),
+      option.setName('prefijo').setDescription('Perfijo de los roles a buscar').setRequired(true),
+    ) as SlashCommandBuilder,
   execute: async (interaction: CommandInteraction) => {
-    // Obtener el prefijo de los roles del usuario
-    const prefix = interaction.options.get('prefix');
+    const discordInteraction = interaction;
 
-    // Validar si se proporcionó un prefijo
-    if (!prefix) {
-      await interaction.reply({ content: 'Por favor, proporciona un prefijo para buscar los roles.', ephemeral: true });
-      return;
-    }
+    const prefix: string = (discordInteraction.options as CommandInteractionOptionResolver).getString('prefijo', true);
 
-    // Obtener todos los roles del servidor que empiecen con el prefijo especificado
-    const roles = interaction.guild?.roles.cache.filter((role) =>
-      role.name.toLowerCase().startsWith((prefix?.value as string).toLowerCase()),
+    // Get all roles that start with the prefix
+    const roles: Collection<string, Role> | undefined = discordInteraction.guild?.roles.cache.filter((role) =>
+      role.name.toLowerCase().startsWith(prefix.toLowerCase()),
     );
 
-    // Validar si se encontraron roles con el prefijo especificado
     if (!roles || roles.size === 0) {
-      await interaction.reply({ content: 'No se encontraron roles con el prefijo especificado.', ephemeral: true });
+      await discordInteraction.reply({
+        content: 'No se encontraron roles con el prefijo especificado.',
+        ephemeral: true,
+      });
 
       return;
     } else {
       roles.forEach(async (role) => {
-        await prisma.role.create({
-          data: {
-            discordRoleId: role.id,
-            discordRoleName: role.name,
-          },
-        });
+        cacheService.createRole(role.guild.id, role.id, role.name);
       });
     }
 
-    // Respondemos al usuario confirmando que se han encontrado y almacenado los roles
-    await interaction.reply({
-      content: `Se encontraron y almacenaron ${roles.size} roles con el prefijo "${prefix.value as string}".\n**Son los siguientes:**\n- ${roles.map((role) => role.id + ' - ' + role.name).join('\n- ')}`,
+    // Reply with the roles found
+    await discordInteraction.reply({
+      content: `Se encontraron y almacenaron ${roles.size} roles con el prefijo **"${prefix}"**.\n\n**Son los siguientes:**\n- ${roles.map((role) => '**id:** `' + role.id + '` - **name:** `' + role.name + '`').join('\n- ')}`,
       ephemeral: true,
     });
   },
