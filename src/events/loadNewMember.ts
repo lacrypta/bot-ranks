@@ -1,6 +1,7 @@
 import { BotEvent } from '../types/botEvents';
-import { Client, GuildMember } from 'discord.js';
-import { prisma } from '../services/prismaClient';
+import { GuildMember } from 'discord.js';
+import { Guild as PrismaGuild } from '@prisma/client';
+import { cacheService } from '../services/cache';
 
 const event: BotEvent = {
   name: 'guildMemberAdd',
@@ -9,25 +10,11 @@ const event: BotEvent = {
     console.log(`New member joined: ${member.user.tag}`);
 
     try {
-      await prisma.member.upsert({
-        where: {
-          discordMemeberId: member.id,
-        },
-        update: {
-          discordDisplayName: member.displayName,
-          discordProfilePicture: member.user.displayAvatarURL(),
-          guildId: member.guild.id,
-        },
-        create: {
-          discordMemeberId: member.id,
-          discordDisplayName: member.displayName,
-          discordProfilePicture: member.user.displayAvatarURL(),
-          guildId: member.guild.id,
-          discordTemporalLevelXp: 0,
-          discordTemporalLevel: 0,
-          discordTemporalLevelCooldown: Date.now().toString(),
-        },
-      });
+      const prismaGuild: PrismaGuild | null = await cacheService.getGuildByDiscordId(member.guild.id);
+
+      if (!prismaGuild) throw new Error('Guild not found in the database');
+
+      await cacheService.upsertMember(prismaGuild?.id!, member.id, member.displayName, member.displayAvatarURL());
 
       console.log(`Member ${member.user.tag} added to the database`);
     } catch (error) {
