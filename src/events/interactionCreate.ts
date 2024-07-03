@@ -1,23 +1,13 @@
-import {
-  Channel,
-  ChannelType,
-  GuildBasedChannel,
-  Interaction,
-  Message,
-  Role,
-  EmbedBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-} from 'discord.js';
+import { Channel, ChannelType, GuildBasedChannel, Interaction, Message, Role } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { ExtendedClient } from '../types/discordClient';
 import { prisma } from '../services/prismaClient';
-import { Message as PrismaMessage, Role as PrismaRole, ReactionButton } from '@prisma/client';
-import { finalizeRoleReactionCommand } from '../commands/roleReaction/roleReaction';
+import { Role as PrismaRole, ReactionButton } from '@prisma/client';
+import { asignRoleToMessageReactionRole, finalizeRoleReactionCommand } from '../commands/roleReaction/roleReaction';
 import { addButtonToMessage } from '../commands/roleButton/roleButton';
-import { ActionRowBuilder } from '@discordjs/builders';
 import { createAndSendMessagePadrinoProfile, modalMenu } from '../commands/padrino/serPadrinoHelpers';
-import { confirmPadrino, createSelectPadrino } from '../commands/padrino/obtenerPadrinoHelpers';
+import { createSelectPadrino } from '../commands/padrino/obtenerPadrinoHelpers';
+import { cacheService } from '../services/cache';
 
 let discordMessageInstance: Message | null = null;
 
@@ -41,12 +31,12 @@ const event: BotEvent = {
     //////////////
     else if (interaction.isButton()) {
       /// /role-rection-commnad ///
-      if (interaction.customId === 'role-reaction-command-finish-button') {
+      if (interaction.customId === 'role-reaction-finish-button') {
         finalizeRoleReactionCommand();
       } /// End Of /role-rection-commnad ///
 
       /// /role-button-commnad ///
-      if (interaction.customId.startsWith('role-button-command-button-')) {
+      if (interaction.customId.startsWith('role-button-button-')) {
         const buttonId: string = interaction.customId;
         let prismaRole: PrismaRole[] | undefined;
 
@@ -91,29 +81,29 @@ const event: BotEvent = {
         }
       } /// End Of /role-button-commnad ///
 
-      /// /ser-padrino-command ///
-      if (interaction.customId === 'ser-padrino-command-edit-button') {
+      /// /ser-padrino ///
+      if (interaction.customId === 'ser-padrino-edit-button') {
         await modalMenu(interaction);
       }
 
-      if (interaction.customId === 'ser-padrino-command-confirm-button') {
+      if (interaction.customId === 'ser-padrino-confirm-button') {
         await interaction.update({
           content: '# Tu perfil de Padrino\n> Confirmado',
           components: [],
         });
-      } /// End Of /ser-padrino-command ///
+      } /// End Of /ser-padrino ///
 
-      /// /obtener-padrino-command ///
-      if (interaction.customId.startsWith('obtener-padrino-command-confirm-button-id:')) {
+      /// /obtener-padrino ///
+      if (interaction.customId.startsWith('obtener-padrino-confirm-button-id:')) {
         const prismaPadrinoId: string = interaction.customId.split(':')[1]!;
 
-        await confirmPadrino(prismaPadrinoId, interaction.user.id);
+        await cacheService.updatePadrinoOfMember(interaction.user.id, prismaPadrinoId);
 
         await interaction.update({
           content: '# Padrino confirmado! :white_check_mark:',
           components: [],
         });
-      } /// End Of /obtener-padrino-command ///
+      } /// End Of /obtener-padrino ///
     }
 
     //////////////////////////
@@ -121,58 +111,59 @@ const event: BotEvent = {
     //////////////////////////
     else if (interaction.isStringSelectMenu()) {
       /// /role-rection-commnad ///
-      if (interaction.customId === 'role-reaction-command-select-menu') {
-        // Get message from database
-        let prismaMessage: PrismaMessage[];
-        try {
-          prismaMessage = await prisma.message.findMany({
-            where: {
-              discordCommandName: 'role-reaction-command',
-            },
-          });
-        } catch (error) {
-          console.error('Failed to get message from database:', error);
+      if (interaction.customId.startsWith('role-reaction-select-menu')) {
+        asignRoleToMessageReactionRole(interaction);
+        // // Get message from database
+        // let prismaMessage: PrismaMessage[];
+        // try {
+        //   prismaMessage = await prisma.message.findMany({
+        //     where: {
+        //       discordCommandName: 'role-reaction-command',
+        //     },
+        //   });
+        // } catch (error) {
+        //   console.error('Failed to get message from database:', error);
 
-          return;
-        }
+        //   return;
+        // }
 
-        // Get selected role
-        const selectedRoleId: string = interaction.values[0]!;
-        const selectedRole: Role | undefined = interaction.guild!.roles.cache.get(selectedRoleId);
+        // // Get selected role
+        // const selectedRoleId: string = interaction.values[0]!;
+        // const selectedRole: Role | undefined = interaction.guild!.roles.cache.get(selectedRoleId);
 
-        if (selectedRole) {
-          let role: PrismaRole | null = await prisma.role.findUnique({
-            where: {
-              discordRoleId: selectedRoleId,
-            },
-          });
+        // if (selectedRole) {
+        //   let role: PrismaRole | null = await prisma.role.findUnique({
+        //     where: {
+        //       discordRoleId: selectedRoleId,
+        //     },
+        //   });
 
-          await prisma.messageReactionRole.create({
-            data: {
-              roleId: role!.id,
-              messageId: prismaMessage[0]!.id,
-            },
-          });
+        //   await prisma.messageReactionRole.create({
+        //     data: {
+        //       roleId: role!.id,
+        //       messageId: prismaMessage[0]!.id,
+        //     },
+        //   });
 
-          await interaction.update({
-            content: `You selected the role: ${selectedRole.name}.\n\nAdd reaction to message`,
-            components: [],
-          });
-        } else {
-          await interaction.update({
-            content: 'Role not found.',
-            components: [],
-          });
-        }
+        //   await interaction.update({
+        //     content: `You selected the role: ${selectedRole.name}.\n\nAdd reaction to message`,
+        //     components: [],
+        //   });
+        // } else {
+        //   await interaction.update({
+        //     content: 'Role not found.',
+        //     components: [],
+        //   });
+        // }
       } /// End Of /role-rection-commnad ///
 
-      /// /obtener-padrino-command ///
-      if (interaction.customId === 'obtener-padrino-command-select-menu') {
+      /// /obtener-padrino ///
+      if (interaction.customId === 'obtener-padrino-select-menu') {
         // Get selected padrino
         const selectedPadrinoMemberId: string = interaction.values[0]!;
 
         await createSelectPadrino(interaction, selectedPadrinoMemberId);
-      } /// End Of /obtener-padrino-command ///
+      } /// End Of /obtener-padrino ///
     }
 
     ////////////////////
@@ -180,9 +171,9 @@ const event: BotEvent = {
     ////////////////////
     else if (interaction.isModalSubmit()) {
       /// /role-button-commnad ///
-      if (interaction.customId === 'role-button-command-modal') {
+      if (interaction.customId === 'role-button-modal') {
         // Setup
-        if (interaction.fields.fields.firstKey() === 'role-button-command-text-input-message') {
+        if (interaction.fields.fields.firstKey() === 'role-button-text-input-message') {
           // Get channel
           const channelId: string = interaction.channelId!;
           const channel: GuildBasedChannel | undefined = interaction.guild!.channels.cache.get(channelId);
@@ -203,10 +194,10 @@ const event: BotEvent = {
         }
       } /// End Of /role-button-commnad ///
 
-      /// /ser-padrino-command ///
-      if (interaction.customId === 'ser-padrino-command-modal') {
+      /// /ser-padrino ///
+      if (interaction.customId === 'ser-padrino-modal') {
         await createAndSendMessagePadrinoProfile(interaction);
-      }
+      } /// End Of /ser-padrino ///
     }
 
     /////////////////////////////////////
