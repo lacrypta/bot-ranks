@@ -8,74 +8,93 @@ import {
   StringSelectMenuInteraction,
   StringSelectMenuOptionBuilder,
 } from 'discord.js';
-import { prisma } from '../../services/prismaClient';
-import { Padrino, Member } from '@prisma/client';
-import { EmbedBuilder, embedLength } from '@discordjs/builders';
-import { Console } from 'console';
-
-interface PadrinoData {
-  padrinoId: string;
-  displayName: string;
-  profilePicture: string;
-  shortDescription: string;
-  longDescription: string;
-}
-
-interface PadrinosList {
-  [key: string]: PadrinoData;
-}
+import { Padrino as PrismaPadrino, Member as PrismaMember } from '@prisma/client';
+import { EmbedBuilder } from '@discordjs/builders';
+import { cacheService } from '../../services/cache';
+import { PadrinoIndex } from '../../types/cache';
 
 async function createSelectPadrino(
-  discordInteraction: CommandInteraction | StringSelectMenuInteraction,
-  selectedPadrinoMemberId?: string,
+  _discordInteraction: CommandInteraction | StringSelectMenuInteraction,
+  _selectedPadrinoMemberId?: string,
 ) {
-  const allPadrinos: PadrinosList = await getPadrinos();
+  const discordUserIdInvokedIt: string = _discordInteraction.user.id;
+  const discordGuildId: string = _discordInteraction.guildId!;
 
-  if (!allPadrinos) {
-    throw new Error('Failed to get padrinos from database');
+  const prismaPadrinosIndex: PadrinoIndex | null = await cacheService.getAllPadrinos();
+
+  if (!prismaPadrinosIndex) {
+    throw new Error('Failed to get padrinos from cache');
   }
 
   // Crete select menu options
-  const roleOptions: StringSelectMenuOptionBuilder[] = Object.keys(allPadrinos).map((discordMemberId) => {
-    const padrino = allPadrinos[discordMemberId];
+  const prismaMemberInvokedIt: PrismaMember | null = await cacheService.getMemberByDiscordId(
+    discordGuildId,
+    discordUserIdInvokedIt,
+  );
 
-    return new StringSelectMenuOptionBuilder()
-      .setLabel(padrino!.displayName + ' - ' + padrino!.shortDescription)
-      .setValue(discordMemberId);
-  });
+  const roleOptions: StringSelectMenuOptionBuilder[] = [];
+
+  for (const [prismaMemberId, prismaPadrino] of Object.entries(prismaPadrinosIndex)) {
+    if (prismaMemberId === prismaMemberInvokedIt?.id) {
+      continue;
+    }
+
+    const prismaMemberOfPadrino = await cacheService.getMemberByPrismaId(prismaMemberId);
+
+    if (!prismaMemberOfPadrino) {
+      throw new Error('Failed to get padrino member from cache');
+    }
+
+    roleOptions.push(
+      new StringSelectMenuOptionBuilder()
+        .setLabel(prismaMemberOfPadrino.discordDisplayName + ' - ' + prismaPadrino.shortDescription)
+        .setValue(prismaMemberId),
+    );
+  }
 
   try {
+    if (roleOptions.length === 0) {
+      // Send message
+      await _discordInteraction.reply({
+        content: 'No hay padrinos disponibles. :pensive:',
+        components: [],
+        ephemeral: true,
+      });
+
+      throw new Error('No padrinos found');
+    }
+
     // Create select menu component
     const menuComponent: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-      .setCustomId('obtener-padrino-command-select-menu')
+      .setCustomId('obtener-padrino-select-menu')
       .setPlaceholder('Seleccioná tu padrino')
       .addOptions(roleOptions);
 
     // Create select menu
     const selectMenu = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menuComponent);
 
-    // Check if discordInteraction is after replied
-    if (discordInteraction.type === InteractionType.ApplicationCommand) {
+    // Check if _discordInteraction is after replied
+    if (_discordInteraction.type === InteractionType.ApplicationCommand) {
       // Send message
-      await discordInteraction.reply({
+      await _discordInteraction.reply({
         content: '# Elegí tu padrino:',
         components: [selectMenu],
         ephemeral: true,
       });
-    } else if (discordInteraction.type === InteractionType.MessageComponent) {
+    } else if (_discordInteraction.type === InteractionType.MessageComponent) {
       // Create buttons
       const confirmButton = new ButtonBuilder()
-        .setCustomId(`obtener-padrino-command-confirm-button-id:${allPadrinos[selectedPadrinoMemberId!]!.padrinoId}`)
+        .setCustomId(`obtener-padrino-confirm-button-id:${prismaPadrinosIndex[_selectedPadrinoMemberId!].id}`)
         .setLabel('Confirmar padrino')
         .setStyle(ButtonStyle.Primary);
       const rowButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton);
 
-      const embed = await createPadrinoEmbed(allPadrinos[selectedPadrinoMemberId!]!);
+      const embed = await createPadrinoEmbed(prismaPadrinosIndex[_selectedPadrinoMemberId!]);
 
-      await discordInteraction.update({
+      await _discordInteraction.update({
         content: '# Elegiste tu padrino\n> Confrimá o seleccioná otro.',
         embeds: [embed],
-        components: [selectMenu, rowButtons], // TODO: sacar de la lista los roles que ya se eligieron
+        components: [selectMenu, rowButtons],
       });
     }
   } catch (error) {
@@ -83,64 +102,24 @@ async function createSelectPadrino(
   }
 }
 
-async function getPadrinos() {
-  const padrinos: Padrino[] | undefined = await prisma.padrino.findMany();
-  const padrinosData: PadrinosList = {};
+async function createPadrinoEmbed(_prismaPadrino: PrismaPadrino) {
+  const prismaMemberOfPadrino: PrismaMember | null = await cacheService.getMemberByPrismaId(_prismaPadrino.memberId);
 
-  for (const padrino of padrinos) {
-    try {
-      const member = await prisma.member.findUnique({
-        where: {
-          id: padrino.memberId,
-        },
-      });
-      if (!member) {
-        throw new Error('Member not found');
-      }
-
-      padrinosData[member.discordMemeberId] = {
-        padrinoId: padrino.id,
-        displayName: member.discordDisplayName,
-        profilePicture: member.discordProfilePicture,
-        shortDescription: padrino.shortDescription,
-        longDescription: padrino.longDescription,
-      };
-    } catch (error) {
-      console.error('Failed to get member from database:', error);
-    }
+  if (!prismaMemberOfPadrino) {
+    throw new Error('Failed to get padrino member from cache');
   }
 
-  return padrinosData;
-}
-
-async function createPadrinoEmbed(padrinoData: PadrinoData) {
   // Create an embed message
   const embed = new EmbedBuilder()
     .setColor(0x0099ff)
-    .setThumbnail(padrinoData.profilePicture)
+    .setThumbnail(prismaMemberOfPadrino.discordProfilePicture)
     .addFields(
-      { name: 'Nombre', value: padrinoData.displayName, inline: true },
-      { name: 'Resumen', value: padrinoData.shortDescription, inline: false },
-      { name: 'Biografía', value: padrinoData.longDescription, inline: false },
+      { name: 'Nombre', value: prismaMemberOfPadrino.discordDisplayName, inline: true },
+      { name: 'Resumen', value: _prismaPadrino.shortDescription, inline: false },
+      { name: 'Biografía', value: _prismaPadrino.longDescription, inline: false },
     );
 
   return embed;
 }
 
-async function confirmPadrino(prismaPadrinoId: string, discordUserId: string) {
-  console.log('confirmPadrino', prismaPadrinoId, discordUserId);
-  try {
-    await prisma.member.update({
-      where: {
-        discordMemeberId: discordUserId,
-      },
-      data: {
-        myPadrinoId: prismaPadrinoId,
-      },
-    });
-  } catch (error) {
-    console.error('Failed to confirm padrino:', error);
-  }
-}
-
-export { createSelectPadrino, confirmPadrino };
+export { createSelectPadrino };

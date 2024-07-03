@@ -9,25 +9,27 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ButtonInteraction,
-  User,
+  GuildMember,
 } from 'discord.js';
-import { prisma } from '../../services/prismaClient';
-import { Member, Padrino } from '@prisma/client';
+import { Member as PrismaMember, Padrino as PrismaPadrino } from '@prisma/client';
+import { cacheService } from '../../services/cache';
 
 async function modalMenu(discordInteraction: CommandInteraction | ButtonInteraction) {
   try {
-    const modal = new ModalBuilder().setCustomId('ser-padrino-command-modal').setTitle('Personalizá tu perfil');
+    const modal = new ModalBuilder().setCustomId('ser-padrino-modal').setTitle('Personalizá tu perfil');
 
     // Crete text input component
     const shortTextInput = new TextInputBuilder()
-      .setCustomId('ser-padrino-command-short-text-input')
+      .setCustomId('ser-padrino-short-text-input')
       .setLabel('Resumen')
       .setStyle(TextInputStyle.Short)
       .setRequired(true)
-      .setMaxLength(150);
+      .setMaxLength(150)
+      .setPlaceholder('Contá en pocas palabras quién sos');
     const longTextInput = new TextInputBuilder()
-      .setCustomId('ser-padrino-command-long-text-input')
+      .setCustomId('ser-padrino-long-text-input')
       .setLabel('Biografía')
+      .setPlaceholder('Contá un poco sobre vos')
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(true)
       .setMaxLength(1024);
@@ -46,44 +48,45 @@ async function modalMenu(discordInteraction: CommandInteraction | ButtonInteract
   }
 }
 
-async function createAndSendMessagePadrinoProfile(discordInteraction: ModalSubmitInteraction) {
+async function createAndSendMessagePadrinoProfile(_discordInteraction: ModalSubmitInteraction) {
   // Get inputs from modal
-  const shortTextInput: string = discordInteraction.fields.fields.get('ser-padrino-command-short-text-input')!.value!;
-  const longTextInput: string = discordInteraction.fields.fields.get('ser-padrino-command-long-text-input')!.value!;
+  const shortTextInput: string = _discordInteraction.fields.fields.get('ser-padrino-short-text-input')!.value!;
+  const longTextInput: string = _discordInteraction.fields.fields.get('ser-padrino-long-text-input')!.value!;
 
   // Get user information
-  const user: User = discordInteraction.user;
-  const userId: string = user.id;
-  const userName: string = user.displayName;
-  const userAvatar: string = user.displayAvatarURL();
+  const discordGuildId: string = _discordInteraction.guild!.id;
+  const discordMember: GuildMember = await _discordInteraction.guild!.members.fetch(_discordInteraction.user.id);
+  const discordMemberId: string = discordMember.id;
+  const discordMemberName: string = discordMember.displayName;
+  const discordMemberAvatar: string = discordMember.displayAvatarURL();
 
   // Create Padrino in db
-  await createOrEditPadrinoProfile(userId, shortTextInput, longTextInput);
+  await createOrEditPadrinoProfile(discordGuildId, discordMemberId, shortTextInput, longTextInput);
 
   // Create an embed message
   const embed = new EmbedBuilder()
     .setColor(0x0099ff)
-    .setThumbnail(userAvatar!)
+    .setThumbnail(discordMemberAvatar!)
     .addFields(
-      { name: 'Nombre', value: userName, inline: true },
+      { name: 'Nombre', value: discordMemberName, inline: true },
       { name: 'Resumen', value: shortTextInput, inline: false },
       { name: 'Biografía', value: longTextInput, inline: false },
     );
 
   // Create buttons
   const confirmButton = new ButtonBuilder()
-    .setCustomId(`ser-padrino-command-confirm-button`)
+    .setCustomId(`ser-padrino-confirm-button`)
     .setLabel('Confirmar perfil')
     .setStyle(ButtonStyle.Primary);
   const editButton = new ButtonBuilder()
-    .setCustomId('ser-padrino-command-edit-button')
+    .setCustomId('ser-padrino-edit-button')
     .setLabel('Editar')
     .setStyle(ButtonStyle.Secondary);
   const rowButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, editButton);
 
   // Send embed message
   try {
-    await discordInteraction.reply({
+    await _discordInteraction.reply({
       content: '# Tu perfil de Padrino',
       embeds: [embed],
       components: [rowButtons],
@@ -94,73 +97,29 @@ async function createAndSendMessagePadrinoProfile(discordInteraction: ModalSubmi
   }
 }
 
-async function createPadrinoProfile(_discordMemberId: string, _shortDescription: string, _longDescription: string) {
+async function createOrEditPadrinoProfile(
+  _discordGuildId: string,
+  _discordMemberId: string,
+  _shortDescription: string,
+  _longDescription: string,
+) {
   try {
-    const member = await prisma.member.findUnique({
-      where: {
-        discordMemeberId: _discordMemberId,
-      },
-    });
+    // Get member from db
+    const prismaMember: PrismaMember | null = await cacheService.getMemberByDiscordId(
+      _discordGuildId,
+      _discordMemberId,
+    );
 
-    const padrino = await prisma.padrino.create({
-      data: {
-        memberId: member!.id,
-        shortDescription: _shortDescription,
-        longDescription: _longDescription,
-      },
-    });
+    // Get padrino from db
+    const prismaPadrino: PrismaPadrino | null = await cacheService.getPadrinoByMemberId(prismaMember!.id);
 
-    return padrino;
-  } catch (error) {
-    console.error('Failed to create Padrino:', error);
-  }
-}
-
-async function editPadrinoProfile(_prismaPadrinoId: string, _shortDescription: string, _longDescription: string) {
-  try {
-    // Create the data object dynamically based on non-empty inputs
-    const data: { shortDescription?: string; longDescription?: string } = {};
-
-    if (_shortDescription !== '') {
-      data.shortDescription = _shortDescription;
-    }
-
-    if (_longDescription !== '') {
-      data.longDescription = _longDescription;
-    }
-
-    // Update only if there's something to update
-    if (Object.keys(data).length > 0) {
-      await prisma.padrino.update({
-        where: {
-          id: _prismaPadrinoId,
-        },
-        data: data,
-      });
+    if (!prismaPadrino) {
+      await cacheService.createPadrino(prismaMember!.id, _shortDescription, _longDescription);
     } else {
-      throw new Error('No valid fields to update Padrino.');
+      await cacheService.updatePadrino(prismaPadrino.id, _shortDescription, _longDescription);
     }
   } catch (error) {
-    console.error('Failed to edit Padrino:', error);
-  }
-}
-
-async function createOrEditPadrinoProfile(_discordMemberId: string, shortDescription: string, longDescription: string) {
-  const prismaMember: Member | null = await prisma.member.findUnique({
-    where: {
-      discordMemeberId: _discordMemberId,
-    },
-  });
-  const prismaPadrino: Padrino | null = await prisma.padrino.findUnique({
-    where: {
-      memberId: prismaMember!.id,
-    },
-  });
-
-  if (prismaMember && prismaPadrino) {
-    await editPadrinoProfile(prismaPadrino.id, shortDescription, longDescription);
-  } else {
-    await createPadrinoProfile(_discordMemberId, shortDescription, longDescription);
+    console.error('Failed to create or edit padrino profile:', error);
   }
 }
 
