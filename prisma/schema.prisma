@@ -30,8 +30,10 @@ datasource db {
 
 /// Server models ///
 model Guild {
-  id             String @id @default(uuid())
-  discordGuildId String @unique @map("discord_guild_id")
+  id                  String  @id @default(uuid())
+  discordGuildId      String  @unique @map("discord_guild_id")
+  levelsChannelId     String? @map("levels_channel_id")
+  padrinoMeritoRoleId String? @map("padrino_merito_role_id")
 
   channels Channel[]
   Role     Role[]
