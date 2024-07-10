@@ -5,6 +5,7 @@ import {
   Message as PrismaMessage,
   Role as PrismaRole,
   MessageReactionRole as PrismaMessageReactionRole,
+  ReactionButton as PrismaReactionButton,
   Member as PrismaMember,
   Padrino as PrismaPadrino,
 } from '@prisma/client';
@@ -15,8 +16,9 @@ import {
   RolesIndex,
   MemberIndex,
   PadrinoIndex,
+  MessageReactionRoleIndex,
+  ReactionButtonIndex,
 } from '../types/cache';
-import { Tracing } from 'trace_events';
 
 class CacheService implements CacheServiceInterface {
   private guild: PrismaGuild | null = null;
@@ -27,19 +29,23 @@ class CacheService implements CacheServiceInterface {
     byPrismaId: {},
     byDiscordId: {},
   };
-  // private messageReactionRolesIndexByPrismaMessageId: MessageReactionRoleIndex = {};
+  private messageReactionRolesIndexByPrismaMessageId: MessageReactionRoleIndex = {};
+  private reactionButtonsIndexByPrismaRoleId: ReactionButtonIndex = {};
   private padrinosIndexByMemberId: PadrinoIndex = {};
 
   ////////////////////////////////////////////
   //                Guild                   //
   ////////////////////////////////////////////
-  async createGuild(_discordGuildId: string): Promise<PrismaGuild | null> {
-    // Check if guild is already in the cache
-    if (this.guild) return this.guild;
-
+  async upsertGuild(_discordGuildId: string): Promise<PrismaGuild | null> {
     // If guild is not in the cache, create it in the database
-    const prismaGuild: PrismaGuild | null = await prisma.guild.create({
-      data: {
+    const prismaGuild: PrismaGuild | null = await prisma.guild.upsert({
+      where: {
+        discordGuildId: _discordGuildId,
+      },
+      update: {
+        discordGuildId: _discordGuildId,
+      },
+      create: {
         discordGuildId: _discordGuildId,
       },
     });
@@ -49,6 +55,8 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getGuildByDiscordId(_discordGuildId: string): Promise<PrismaGuild | null> {
+    if (_discordGuildId === null) return null;
+
     // Check if guild is already in the cache
     if (this.guild) return this.guild;
 
@@ -94,6 +102,8 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getChannelByDiscordId(_discordGuildId: string, _discordChannelId: string): Promise<PrismaChannel | null> {
+    if (_discordChannelId === null || _discordChannelId === null) return null;
+
     // Check if the channel is already in the cache
     if (this.channelsIndexByDiscordId[_discordChannelId]) return this.channelsIndexByDiscordId[_discordChannelId]!;
 
@@ -141,6 +151,8 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getMessageByDiscordId(_discordChannelId: string, _discordMessageId: string): Promise<PrismaMessage | null> {
+    if (_discordMessageId === null || _discordChannelId === null) return null;
+
     // Check if the message is already in the cache
     if (this.messagesIndexByDiscordId[_discordMessageId]) return this.messagesIndexByDiscordId[_discordMessageId]!;
 
@@ -156,26 +168,44 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getAllMessages(): Promise<MessageIndex | null> {
+    if (this.messagesIndexByDiscordId.length === undefined) {
+      const prismaMessages: PrismaMessage[] | null = await prisma.message.findMany();
+
+      if (prismaMessages) {
+        prismaMessages.forEach((prismaMessage: PrismaMessage) => {
+          this.messagesIndexByDiscordId[prismaMessage.discordMessageId] = prismaMessage;
+        });
+      } else {
+        return null;
+      }
+    }
+
     return this.messagesIndexByDiscordId;
   }
 
   ////////////////////////////////////////////
   //                Role                    //
   ////////////////////////////////////////////
-  async createRole(
+  async upsertRole(
     _discordGuildId: string,
     _discordRoleId: string,
     _discordRoleName: string,
   ): Promise<PrismaRole | null> {
-    // Check if the role is already in the cache
-    const roleAux: PrismaRole | null = await this.getRoleByDiscordId(_discordGuildId, _discordRoleId);
+    // Get Prisma Guild
+    const prismaGuild: PrismaGuild | null = await this.getGuildByDiscordId(_discordGuildId);
 
-    if (roleAux) return roleAux;
+    if (!prismaGuild) return null;
 
-    // If the role isn't in the cache, create it in the database
-    const prismaRole: PrismaRole | null = await prisma.role.create({
-      data: {
-        guildId: _discordGuildId,
+    // Create it in the database
+    const prismaRole: PrismaRole | null = await prisma.role.upsert({
+      where: {
+        discordRoleId: _discordRoleId,
+      },
+      update: {
+        discordRoleName: _discordRoleName,
+      },
+      create: {
+        guildId: prismaGuild.id,
         discordRoleId: _discordRoleId,
         discordRoleName: _discordRoleName,
       },
@@ -186,6 +216,8 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getRoleByDiscordId(_discordGuildId: string, _discordRoleId: string): Promise<PrismaRole | null> {
+    if (_discordRoleId === null || _discordGuildId === null) return null;
+
     // Check if the role is already in the cache
     if (this.rolesIndexByDiscordId[_discordRoleId]) return this.rolesIndexByDiscordId[_discordRoleId]!;
 
@@ -202,117 +234,123 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getAllRoles(): Promise<RolesIndex | null> {
+    if (this.rolesIndexByDiscordId.length === undefined) {
+      const prismaRoles: PrismaRole[] | null = await prisma.role.findMany();
+
+      if (prismaRoles) {
+        prismaRoles.forEach((prismaRole: PrismaRole) => {
+          this.rolesIndexByDiscordId[prismaRole.discordRoleId] = prismaRole;
+        });
+      } else {
+        return null;
+      }
+    }
+
     return this.rolesIndexByDiscordId;
   }
 
   ////////////////////////////////////////////
   //         MessageReactionRole            //
   ////////////////////////////////////////////
-  // async createMessageReactionRole(
-  //   _prismaMessageId: string,
-  //   _prismaRoleId: string,
-  //   _discordEmojiId: string | undefined,
-  // ): Promise<PrismaMessageReactionRole | null> {
-  //   // Check if the role is already in the cache
-  //   const messageReactionRoleAux: PrismaMessageReactionRole | null = await this.getMessageReactionRoleByPrismaMessageId(
-  //     _prismaMessageId,
-  //     _prismaRoleIdds,
-  //   );
+  async createMessageReactionRole(
+    _prismaMessageId: string,
+    _prismaRoleId: string,
+    _discordEmojiId: string | undefined,
+  ): Promise<PrismaMessageReactionRole | null> {
+    // If the role is not in the cache, create it in the database
+    const prismaMessageReactionRole: PrismaMessageReactionRole | null = await prisma.messageReactionRole.create({
+      data: {
+        messageId: _prismaMessageId,
+        roleId: _prismaRoleId,
+        discordEmojiId: _discordEmojiId ? _discordEmojiId : null,
+      },
+    });
 
-  //   if (messageReactionRoleAux) return messageReactionRoleAux;
+    // If the role is in the database, add it to the cache and return it. If not, return null
+    return prismaMessageReactionRole
+      ? (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId] = prismaMessageReactionRole)
+      : prismaMessageReactionRole;
+  }
 
-  //   // If the role is not in the cache, create it in the database
-  //   const prismaMessageReactionRole: PrismaMessageReactionRole | null = await prisma.messageReactionRole.create({
-  //     data: {
-  //       messageId: _prismaMessageId,
-  //       roleId: _prismaRoleId,
-  //       discordEmojiId: _discordEmojiId ? _discordEmojiId : null,
-  //     },
-  //   });
+  async getMessageReactionRoleByPrismaMessageId(
+    _prismaMessageId: string,
+    _discordEmojiId: string,
+  ): Promise<PrismaMessageReactionRole | null> {
+    if (_prismaMessageId === null || _discordEmojiId === null) return null;
 
-  //   // If the role is in the database, add it to the cache and return it. If not, return null
-  //   return prismaMessageReactionRole
-  //     ? (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId] = prismaMessageReactionRole)
-  //     : prismaMessageReactionRole;
-  // }
+    // Check if the role is already in the cache
+    if (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]!.discordEmojiId === _discordEmojiId)
+      return this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]!;
 
-  // async getMessageReactionRoleByPrismaMessageId(
-  //   _prismaMessageId: string,
-  //   _prismaRoleId: string | undefined,
-  //   _discordEmojiId: string | undefined,
-  // ): Promise<PrismaMessageReactionRole | null> {
-  //   // _prismaRoleId defined
-  //   if (_prismaRoleId) {
-  //       this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]?.roleId === _prismaRoleId;
+    // If the role is not in the cache, check the database
+    const prismaMessageReactionRole: PrismaMessageReactionRole[] | null = await prisma.messageReactionRole.findMany({
+      where: {
+        messageId: _prismaMessageId,
+        discordEmojiId: _discordEmojiId,
+      },
+    });
 
-  //   }
-  //   // _discordEmojiId defined
-  //   else if (_discordEmojiId) {
-  //   }
+    // If the role is in the database, add it to the cache and return it. If not, return null
+    return prismaMessageReactionRole[0]
+      ? (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId] = prismaMessageReactionRole[0])
+      : null;
+  }
 
-  //   // Check if the role is already in the cache
-  //   if (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]![_prismaRoleId]!.roleId === _prismaRoleId)
-  //     return this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]![_prismaRoleId]!;
+  async updateMessageReactionRoleWithEmojiNullByPrismaMessageId(
+    _prismaMessageId: string,
+    _discordEmojiId: string,
+  ): Promise<PrismaMessageReactionRole | null> {
+    const prismaMessageReactionRoleAux: PrismaMessageReactionRole[] = await prisma.messageReactionRole.findMany({
+      where: {
+        messageId: _prismaMessageId,
+        discordEmojiId: null,
+      },
+    });
 
-  //   // If the role is not in the cache, check the database
-  //   const prismaMessageReactionRole: PrismaMessageReactionRole | null = await prisma.messageReactionRole.findUnique({
-  //     where: {
-  //       messageId_roleId: {
-  //         messageId: _prismaMessageId,
-  //         roleId: _prismaRoleId,
-  //       },
-  //     },
-  //   });
+    if (prismaMessageReactionRoleAux.length > 0) {
+      await prisma.messageReactionRole.updateMany({
+        where: {
+          messageId: _prismaMessageId,
+          discordEmojiId: null,
+        },
+        data: {
+          discordEmojiId: _discordEmojiId,
+        },
+      });
 
-  //   // If the role is in the database, add it to the cache and return it. If not, return null
-  //   if (prismaMessageReactionRole) {
-  //     this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId] = {};
-  //     return (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]![_prismaRoleId] =
-  //       prismaMessageReactionRole);
-  //   }
+      const prismaMessageReactionRole: PrismaMessageReactionRole[] | null = await prisma.messageReactionRole.findMany({
+        where: {
+          messageId: _prismaMessageId,
+          roleId: prismaMessageReactionRoleAux[0]?.roleId!,
+        },
+      });
 
-  //   return prismaMessageReactionRole; // TODO: test
-  // }
+      return prismaMessageReactionRole[0]
+        ? (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId] = prismaMessageReactionRole[0])
+        : null;
+    }
 
-  // async updateMessageReactionRoleWithEmojiNullByPrismaMessageId(
-  //   _prismaMessageId: string,
-  //   // _prismaRoleId: string | undefined,
-  //   _discordEmojiId: string,
-  // ): Promise<PrismaMessageReactionRole | null> {
-  //   const prismaMessageReactionRoleEmpty: PrismaMessageReactionRole[] = await prisma.messageReactionRole.findMany({
-  //     where: {
-  //       messageId: _prismaMessageId,
-  //       discordEmojiId: null,
-  //     },
-  //   });
+    return null;
+  }
 
-  //   if (prismaMessageReactionRoleEmpty.length > 0) {
-  //     await prisma.messageReactionRole.updateMany({
-  //       where: {
-  //         messageId: _prismaMessageId,
-  //         discordEmojiId: null,
-  //       },
-  //       data: {
-  //         discordEmojiId: _discordEmojiId,
-  //       },
-  //     });
+  ////////////////////////////////////////////
+  //              ReactionButton            //
+  ////////////////////////////////////////////
 
-  //     const prismaMessageReactionRole: PrismaMessageReactionRole | null = await prisma.messageReactionRole.findUnique({
-  //       where: {
-  //         messageId_roleId: {
-  //           messageId: _prismaMessageId,
-  //           roleId: prismaMessageReactionRoleEmpty[0]?.roleId!,
-  //         },
-  //       },
-  //     });
+  async createReactionButton(_prismaRoleId: string, _discordButtonId: string): Promise<PrismaReactionButton | null> {
+    // If the role isn't in the cache, create it in the database
+    const prismaReactionButton: PrismaReactionButton | null = await prisma.reactionButton.create({
+      data: {
+        roleId: _prismaRoleId,
+        discordButtonId: _discordButtonId,
+      },
+    });
 
-  //     return (this.messageReactionRolesIndexByPrismaMessageId[_prismaMessageId]![
-  //       prismaMessageReactionRoleEmpty[0]?.roleId!
-  //     ] = prismaMessageReactionRole!);
-  //   }
-
-  //   return null;
-  // }
+    // If the role is in the database, add it to the cache and return it. If not, return null
+    return prismaReactionButton
+      ? (this.reactionButtonsIndexByPrismaRoleId[_prismaRoleId] = prismaReactionButton)
+      : prismaReactionButton;
+  }
 
   ////////////////////////////////////////////
   //                Member                  //
@@ -351,13 +389,70 @@ class CacheService implements CacheServiceInterface {
       this.membersIndexById.byPrismaId[prismaMember.id] = prismaMember;
       this.membersIndexById.byDiscordId[prismaMember.discordMemeberId] = prismaMember.id;
 
-      console.log(`Member ${_discordMemberDisplayName} upserted`); // debug
+      // console.log(`Member ${_discordMemberDisplayName} upserted`); // debug
 
       return prismaMember ? this.membersIndexById.byPrismaId[prismaMember.id]! : null;
     } catch (error) {
       console.error(`Failed to upsert member: ${_discordMemberDisplayName}`, error); // debug
 
       return null;
+    }
+  }
+
+  async incrementMemberXp(
+    _prismaMember: PrismaMember,
+    _xp: number,
+    _timestamp: string | undefined,
+  ): Promise<PrismaMember | null> {
+    // Check if the member is in the cache
+    const prismaMemberId: PrismaMember | undefined = this.membersIndexById.byPrismaId[_prismaMember.id];
+    if (!prismaMemberId) return null;
+
+    // Only increment in cache
+    this.membersIndexById.byPrismaId[_prismaMember.id]!.discordTemporalLevelXp += _xp;
+    if (_timestamp) this.membersIndexById.byPrismaId[_prismaMember.id]!.discordTemporalLevelCooldown = _timestamp;
+
+    return this.membersIndexById.byPrismaId[_prismaMember.id]!;
+  }
+
+  async levelUpMember(
+    _prismaMember: PrismaMember,
+    _xp: number,
+    _level: number,
+    _timestamp: string,
+  ): Promise<PrismaMember | null> {
+    const prismaMemberId: PrismaMember | undefined = this.membersIndexById.byPrismaId[_prismaMember.id];
+    if (!prismaMemberId) return null;
+
+    this.membersIndexById.byPrismaId[_prismaMember.id]!.discordTemporalLevelXp = _xp;
+    this.membersIndexById.byPrismaId[_prismaMember.id]!.discordTemporalLevel = _level;
+    this.membersIndexById.byPrismaId[_prismaMember.id]!.discordTemporalLevelCooldown = _timestamp;
+
+    return this.membersIndexById.byPrismaId[_prismaMember.id]!;
+  }
+
+  async updateMembersLevelsToDatabase(): Promise<boolean> {
+    try {
+      await prisma.$transaction(
+        Object.values(this.membersIndexById.byPrismaId).map((prismaMember: PrismaMember) => {
+          return prisma.member.update({
+            where: {
+              id: prismaMember.id,
+            },
+            data: {
+              discordTemporalLevel: prismaMember.discordTemporalLevel,
+              discordTemporalLevelXp: prismaMember.discordTemporalLevelXp,
+              discordTemporalLevelCooldown: prismaMember.discordTemporalLevelCooldown,
+            },
+          });
+        }),
+      );
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to update members levels to the database`, error);
+
+      return false;
     }
   }
 
@@ -373,7 +468,7 @@ class CacheService implements CacheServiceInterface {
     });
 
     if (prismaMember) {
-      console.log(`Member ${prismaMember.discordDisplayName} padrino updated`); // debug
+      // console.log(`Member ${prismaMember.discordDisplayName} padrino updated`); // debug
 
       // Add the member to the cache
       this.membersIndexById.byPrismaId[prismaMember!.id] = prismaMember!;
@@ -384,6 +479,8 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getMemberByDiscordId(_discordGuildId: string, _discordMemberId: string): Promise<PrismaMember | null> {
+    if (_discordMemberId === null || _discordMemberId === null) return null;
+
     // Check if the guild exist
     if (!this.guild) return null;
 
@@ -391,7 +488,7 @@ class CacheService implements CacheServiceInterface {
     if (this.membersIndexById.byDiscordId[_discordMemberId]) {
       const prismaMemberId: string = this.membersIndexById.byDiscordId[_discordMemberId]!;
 
-      console.log(`Member ${this.membersIndexById.byPrismaId[prismaMemberId]!.discordDisplayName} already in cache`); // debug
+      // console.log(`Member ${this.membersIndexById.byPrismaId[prismaMemberId]!.discordDisplayName} already in cache`); // debug
 
       return this.membersIndexById.byPrismaId[prismaMemberId]!;
     }
@@ -405,7 +502,7 @@ class CacheService implements CacheServiceInterface {
     });
 
     if (prismaMember) {
-      console.log(`Member ${prismaMember.discordDisplayName} added to cache`); // debug
+      // console.log(`Member ${prismaMember.discordDisplayName} added to cache`); // debug
 
       // Add the member to the cache
       this.membersIndexById.byPrismaId[prismaMember!.id] = prismaMember!;
@@ -417,6 +514,9 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getMemberByPrismaId(_prismaMemberId: string): Promise<PrismaMember | null> {
+    console.log('[cacheService.getMemberByPrismaId] _prismaMemberId:', _prismaMemberId); // debug
+    if (_prismaMemberId === null) return null;
+
     // Check if the guild exist
     if (!this.guild) return null;
 
@@ -435,7 +535,7 @@ class CacheService implements CacheServiceInterface {
     });
 
     if (prismaMember) {
-      console.log(`Member ${prismaMember.discordDisplayName} added to cache`); // debug
+      // console.log(`Member ${prismaMember.discordDisplayName} added to cache`); // debug
 
       // Add the member to the cache
       this.membersIndexById.byPrismaId[prismaMember!.id] = prismaMember!;
@@ -443,6 +543,22 @@ class CacheService implements CacheServiceInterface {
     }
 
     return prismaMember ? this.membersIndexById.byPrismaId[prismaMember!.id]! : null;
+  }
+
+  async getMembersRankingTopTen(_discordGuildId: string): Promise<PrismaMember[] | null> {
+    if (_discordGuildId === null) return null;
+
+    const prismaGuild: PrismaGuild | null = await cacheService.getGuildByDiscordId(_discordGuildId);
+
+    const prismaMembers: PrismaMember[] | null = await prisma.member.findMany({
+      where: {
+        guildId: prismaGuild!.id,
+      },
+      orderBy: [{ discordTemporalLevel: 'desc' }, { discordTemporalLevelXp: 'desc' }],
+      take: 10,
+    });
+
+    return prismaMembers ? prismaMembers : null;
   }
 
   ////////////////////////////////////////////
@@ -506,7 +622,26 @@ class CacheService implements CacheServiceInterface {
     return (this.padrinosIndexByMemberId[prismaPadrino.memberId] = prismaPadrino);
   }
 
+  async getPadrinoByPrismaId(_prismaPadrinoId: string): Promise<PrismaPadrino | null> {
+    if (_prismaPadrinoId === null) return null;
+
+    // Check if the padrino is already in the cache
+    if (this.padrinosIndexByMemberId[_prismaPadrinoId]) return this.padrinosIndexByMemberId[_prismaPadrinoId];
+
+    // If the padrino is not in the cache, check the database
+    const prismaPadrino: PrismaPadrino | null = await prisma.padrino.findUnique({
+      where: {
+        id: _prismaPadrinoId,
+      },
+    });
+
+    // If the padrino is in the database, add it to the cache and return it. If not, return null
+    return prismaPadrino ? (this.padrinosIndexByMemberId[_prismaPadrinoId] = prismaPadrino) : prismaPadrino;
+  }
+
   async getPadrinoByMemberId(_memberId: string): Promise<PrismaPadrino | null> {
+    if (_memberId === null) return null;
+
     // Check if the padrino is already in the cache
     if (this.padrinosIndexByMemberId[_memberId]) return this.padrinosIndexByMemberId[_memberId];
 
@@ -521,7 +656,31 @@ class CacheService implements CacheServiceInterface {
     return prismaPadrino ? (this.padrinosIndexByMemberId[_memberId] = prismaPadrino) : prismaPadrino;
   }
 
+  async getAhijadosByMemberId(_memberId: string): Promise<PrismaMember[] | null> {
+    if (_memberId === null) return null;
+
+    const prismaAhijados: PrismaMember[] | null = await prisma.member.findMany({
+      where: {
+        myPadrinoId: _memberId,
+      },
+    });
+
+    return prismaAhijados ? prismaAhijados : null;
+  }
+
   async getAllPadrinos(): Promise<PadrinoIndex | null> {
+    if (this.padrinosIndexByMemberId.length === undefined) {
+      const prismaPadrinos: PrismaPadrino[] | null = await prisma.padrino.findMany();
+
+      if (prismaPadrinos) {
+        prismaPadrinos.forEach((prismaPadrino: PrismaPadrino) => {
+          this.padrinosIndexByMemberId[prismaPadrino.memberId] = prismaPadrino;
+        });
+      } else {
+        return null;
+      }
+    }
+
     return this.padrinosIndexByMemberId;
   }
 }
