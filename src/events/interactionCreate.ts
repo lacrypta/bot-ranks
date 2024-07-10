@@ -1,4 +1,4 @@
-import { Channel, ChannelType, GuildBasedChannel, Interaction, Message, Role } from 'discord.js';
+import { ChannelType, GuildBasedChannel, Interaction, Message, Role } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
 import { ExtendedClient } from '../types/discordClient';
 import { prisma } from '../services/prismaClient';
@@ -8,8 +8,6 @@ import { addButtonToMessage } from '../commands/roleButton/roleButton';
 import { createAndSendMessagePadrinoProfile, modalMenu } from '../commands/padrino/serPadrinoHelpers';
 import { createSelectPadrino } from '../commands/padrino/obtenerPadrinoHelpers';
 import { cacheService } from '../services/cache';
-
-let discordMessageInstance: Message | null = null;
 
 const event: BotEvent = {
   name: 'interactionCreate',
@@ -30,10 +28,10 @@ const event: BotEvent = {
     /// Button ///
     //////////////
     else if (interaction.isButton()) {
-      /// /role-rection-commnad ///
+      /// /role-rection ///
       if (interaction.customId === 'role-reaction-finish-button') {
         finalizeRoleReactionCommand();
-      } /// End Of /role-rection-commnad ///
+      } /// End Of /role-rection ///
 
       /// /role-button-commnad ///
       if (interaction.customId.startsWith('role-button-button-')) {
@@ -65,21 +63,21 @@ const event: BotEvent = {
                 await member.roles.remove(role);
 
                 await interaction.reply({
-                  content: `You have been removed from the role: ${role.name}`,
+                  content: `Te eliminaste el rol: ${role.name}`,
                   ephemeral: true,
                 });
               } else {
                 await member.roles.add(role);
 
                 await interaction.reply({
-                  content: `You have been given the role: ${role.name}`,
+                  content: `Ahora tenés el rol: ${role.name}`,
                   ephemeral: true,
                 });
               }
             }
           }
         }
-      } /// End Of /role-button-commnad ///
+      } /// End Of /role-button ///
 
       /// /ser-padrino ///
       if (interaction.customId === 'ser-padrino-edit-button') {
@@ -113,48 +111,6 @@ const event: BotEvent = {
       /// /role-rection-commnad ///
       if (interaction.customId.startsWith('role-reaction-select-menu')) {
         asignRoleToMessageReactionRole(interaction);
-        // // Get message from database
-        // let prismaMessage: PrismaMessage[];
-        // try {
-        //   prismaMessage = await prisma.message.findMany({
-        //     where: {
-        //       discordCommandName: 'role-reaction-command',
-        //     },
-        //   });
-        // } catch (error) {
-        //   console.error('Failed to get message from database:', error);
-
-        //   return;
-        // }
-
-        // // Get selected role
-        // const selectedRoleId: string = interaction.values[0]!;
-        // const selectedRole: Role | undefined = interaction.guild!.roles.cache.get(selectedRoleId);
-
-        // if (selectedRole) {
-        //   let role: PrismaRole | null = await prisma.role.findUnique({
-        //     where: {
-        //       discordRoleId: selectedRoleId,
-        //     },
-        //   });
-
-        //   await prisma.messageReactionRole.create({
-        //     data: {
-        //       roleId: role!.id,
-        //       messageId: prismaMessage[0]!.id,
-        //     },
-        //   });
-
-        //   await interaction.update({
-        //     content: `You selected the role: ${selectedRole.name}.\n\nAdd reaction to message`,
-        //     components: [],
-        //   });
-        // } else {
-        //   await interaction.update({
-        //     content: 'Role not found.',
-        //     components: [],
-        //   });
-        // }
       } /// End Of /role-rection-commnad ///
 
       /// /obtener-padrino ///
@@ -187,12 +143,12 @@ const event: BotEvent = {
               console.error('Failed defer modal message', error);
             }
 
-            discordMessageInstance = await channel!.send(textInputMessage);
+            const discordMessageInstance: Message = await channel!.send(textInputMessage);
 
             await addButtonToMessage(discordMessageInstance.id);
           }
         }
-      } /// End Of /role-button-commnad ///
+      } /// End Of /role-button ///
 
       /// /ser-padrino ///
       if (interaction.customId === 'ser-padrino-modal') {
