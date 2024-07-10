@@ -16,7 +16,7 @@ const event: BotEvent = {
 
       await cacheService.upsertMember(prismaGuild?.id!, member.id, member.displayName, member.displayAvatarURL());
 
-      console.log(`Member ${member.user.tag} added to the database`);
+      console.log(`New member ${member.user.tag} added to the database`);
     } catch (error) {
       console.error(`Failed to upsert member: ${member.user.tag}`, error);
     }
