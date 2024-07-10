@@ -1,15 +1,20 @@
-import { LevelUpStatus } from './../services/temporalLevel';
-import { MessageReaction, User } from 'discord.js';
+import { GuildMember, GuildTextBasedChannel, MessageReaction, Role } from 'discord.js';
 import { BotEvent } from '../types/botEvents';
-import { prisma } from '../services/prismaClient';
-import { Message, MessageReactionRole, Role as PrismaRole } from '@prisma/client';
+import {
+  Message as PrismaMessage,
+  MessageReactionRole as PrismaMessageReactionRole,
+  Role as PrismaRole,
+} from '@prisma/client';
 import { reactionToMessage, selectMenu } from '../commands/roleReaction/roleReaction';
 import { addXpReaction } from '../services/temporalLevel';
+import { cacheService } from '../services/cache';
+import { MessageIndex } from '../types/cache';
+import { prisma } from '../services/prismaClient';
 
 const event: BotEvent = {
   name: 'messageReactionAdd',
   once: false,
-  execute: async (reaction: MessageReaction, user: User) => {
+  execute: async (reaction: MessageReaction, discordMember: GuildMember) => {
     if (reaction.partial) {
       try {
         await reaction.fetch();
@@ -19,144 +24,137 @@ const event: BotEvent = {
         return;
       }
     }
+    console.log(
+      `[messageReactionAdd.ts] <@${discordMember.id}> reacted with ${reaction.emoji.name} to message ${reaction.message.id}`,
+    );
 
-    const levelUpStatus = await addXpReaction(reaction, user);
+    ////////////////////////////////////////////
+    //            Temporal Level              //
+    ////////////////////////////////////////////
+    const levelUpStatus = await addXpReaction(reaction, discordMember);
 
     if (!levelUpStatus) {
-      console.error('Failed to add xp to member');
+      console.error('[messageReactionAdd.ts] Failed to add xp to member');
     } else {
+      // Find levels channel
+      const levelsChannelId: string | null | undefined = await prisma.guild
+        .findUnique({
+          where: {
+            discordGuildId: reaction.message.guild?.id,
+          },
+        })
+        .then((guild) => guild?.levelsChannelId);
+      const discordChannel: GuildTextBasedChannel | undefined = reaction.message.guild?.channels.cache.get(
+        levelsChannelId || reaction.message.channel.id,
+      ) as GuildTextBasedChannel;
+
       if (levelUpStatus['reactionAuthor']) {
         if (levelUpStatus['reactionAuthor'].canLevelUp) {
-          await reaction.message.channel.send(
-            `Felicitaciones <@${user.id}>! subiste al nivel ${levelUpStatus['reactionAuthor'].level}!`,
-          );
-        } else {
-          await reaction.message.channel.send(
-            `<@${user.id}>! subiste ${levelUpStatus['reactionAuthor'].xpRemaining} puntos de experiencia **por reaccionar**`,
+          await discordChannel.send(
+            `Felicitaciones <@${discordMember.id}>! subiste al nivel ${levelUpStatus['reactionAuthor'].level}!`,
           );
         }
+        // else {
+        //   await discordChannel.send(
+        //     `<@${discordMember.id}>! subiste ${levelUpStatus['reactionAuthor'].xpRemaining} puntos de experiencia **por reaccionar**!`,
+        //   );
+        // }
       }
       if (levelUpStatus['messageAuthor']) {
         if (levelUpStatus['messageAuthor'].canLevelUp) {
-          await reaction.message.channel.send(
+          await discordChannel.send(
             `Felicitaciones <@${reaction.message.author?.id}>! subiste al nivel ${levelUpStatus['messageAuthor'].level}!`,
           );
-        } else {
-          await reaction.message.channel.send(
-            `<@${reaction.message.author?.id}>! subiste ${levelUpStatus['messageAuthor'].xpRemaining} puntos de experiencia **por recibir una reaccion**`,
-          );
         }
+        // else {
+        //   await discordChannel.send(
+        //     `<@${reaction.message.author?.id}>! subiste ${levelUpStatus['messageAuthor'].xpRemaining} puntos de experiencia **por recibir una reaccion**!`,
+        //   );
+        // }
       }
     }
+    //          End Temporal Level            //
 
+    ////////////////////////////////////////////
+    //            Role Reaction               //
+    ////////////////////////////////////////////
     const discordEmojiId: string = reaction.emoji.id! || reaction.emoji.name!;
     const discordMessageId: string = reaction.message.id;
-    console.log(`[messageReactionAdd.ts] ${user.tag} reacted with ${discordEmojiId} to message ${discordMessageId}`);
-    // console.log(`[messageReactionAdd.ts] ${user.tag} reacted with ${discordEmojiId} to message ${discordMessageId}`);
 
     // Get messages from database
-    let prismaMessages: Message[];
-    try {
-      prismaMessages = await prisma.message.findMany();
-    } catch (error) {
-      console.error('Failed to get message from database:', error);
+    const prismaMessages: MessageIndex | null = await cacheService.getAllMessages();
+
+    if (!prismaMessages) {
+      console.error('[messageReactionAdd.ts] Failed to get message from database:');
 
       return;
     }
 
-    for (const message of prismaMessages) {
-      /// /role-reaction-command ///
-      if (message.discordMessageId === discordMessageId && message.discordCommandName === 'role-reaction-command') {
-        // Update messageReactionRole in db and react it with the bot
-        const prismaMessageReactionRoleEmpty: MessageReactionRole[] = await prisma.messageReactionRole.findMany({
-          where: {
-            messageId: message.id,
-            discordEmojiId: null,
-          },
-        });
+    /// /role-reaction ///
+    if (prismaMessages[discordMessageId] && prismaMessages[discordMessageId]!.discordCommandName === 'role-reaction') {
+      const prismaMessageReactionRoleEmpty: PrismaMessageReactionRole | null =
+        await cacheService.updateMessageReactionRoleWithEmojiNullByPrismaMessageId(
+          prismaMessages[discordMessageId]?.id!,
+          discordEmojiId,
+        );
 
-        /// Setup if not exists
-        if (prismaMessageReactionRoleEmpty.length > 0) {
-          console.log('[messageReactionAdd.ts] Setup messageReactionRole');
-          await prisma.messageReactionRole.updateMany({
-            where: {
-              messageId: message.id,
-              discordEmojiId: null,
-            },
-            data: {
-              discordEmojiId: discordEmojiId,
-            },
-          });
+      // Setup if not exists
+      if (!prismaMessageReactionRoleEmpty) {
+        await reactionToMessage(reaction, discordEmojiId);
+        await selectMenu();
 
-          await reactionToMessage(discordMessageId, discordEmojiId);
-          await selectMenu();
+        return;
+      }
+      // Give role to user
+      else {
+        if (discordMember.user.bot) return;
+
+        // Get messageReactionRole from cache
+        const prismaMessageReactionRole: PrismaMessageReactionRole | null =
+          await cacheService.getMessageReactionRoleByPrismaMessageId(
+            prismaMessages[discordMessageId]!.id!,
+            discordEmojiId,
+          );
+
+        if (!prismaMessageReactionRole) {
+          console.error('Failed to get messageReactionRole from cache');
 
           return;
         }
-        /// Give role to user
-        else {
-          console.log('[messageReactionAdd.ts] Give role to user');
-          const guild = reaction.message.guild!;
-          const member = guild.members.cache.get(user.id);
 
-          // If isn't a bot
-          if (!member!.user.bot) {
-            // Get messageReactionRole from database
-            try {
-              const prismaMessageReactionRole: MessageReactionRole[] = await prisma.messageReactionRole.findMany({
-                where: {
-                  messageId: message.id,
-                  discordEmojiId: discordEmojiId,
-                },
-              });
+        // Get role from guild
+        const discordRoleToAsign: Role | undefined = reaction.message.guild!.roles.cache.get(
+          prismaMessageReactionRole.roleId,
+        );
 
-              const roleId: string = prismaMessageReactionRole[0]!.roleId!;
-              const prismaRole = await prisma.role.findUnique({
-                where: {
-                  id: roleId,
-                },
-              });
+        try {
+          if (discordRoleToAsign) {
+            if (discordMember.roles.cache.has(discordRoleToAsign.id)) {
+              await discordMember.roles.remove(discordRoleToAsign);
+            } else {
+              await discordMember.roles.add(discordRoleToAsign);
+            }
 
-              // Give role to user
-              try {
-                const role = guild.roles.cache.get(prismaRole!.discordRoleId);
+            if (discordMember.roles.cache.has(discordRoleToAsign.id)) {
+              await discordMember.roles.remove(discordRoleToAsign);
 
-                if (role) {
-                  if (member!.roles.cache.has(role.id)) {
-                    await member!.roles.remove(role);
-                  } else {
-                    await member!.roles.add(role);
-                  }
+              // TODO: send message to user
+            } else {
+              await discordMember.roles.add(discordRoleToAsign);
 
-                  if (member!.roles.cache.has(role.id)) {
-                    await member!.roles.remove(role);
-
-                    //* TODO - send message to user
-                  } else {
-                    await member!.roles.add(role);
-
-                    //* TODO - send message to user
-                  }
-                }
-
-                console.log(`[messageReactionAdd.ts] Gave role ${role!.name} to ${user.tag}`);
-
-                return;
-              } catch (error) {
-                console.error('Failed to give role to user:', error);
-              }
-            } catch (error) {
-              console.error('Failed to get messageReactionRole from database:', error);
+              // TODO: send message to user
             }
           }
+
+          console.log(`[messageReactionAdd.ts] Gave role ${discordRoleToAsign?.name} to <@${discordMember.id}>`);
+
+          return;
+        } catch (error) {
+          console.error('Failed to give role to user:', error);
         }
       }
-
-      /// /another-commnad ///
-      if (false) {
-        // your code
-      }
     }
+    //            Role Reaction               //
   },
 };
 
