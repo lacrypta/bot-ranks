@@ -25,7 +25,7 @@ const event: BotEvent = {
       ) as GuildTextBasedChannel;
 
       if (LevelUpStatus.canLevelUp) {
-        await discordChannel.send(`Felicitacoines <@${message.author.id}>! subiste al nivel ${LevelUpStatus.level}!`);
+        await discordChannel.send(`Felicitaciones <@${message.author.id}>! subiste al nivel ${LevelUpStatus.level}!`);
       }
       // else {
       //   await discordChannel.send(
