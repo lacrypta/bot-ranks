@@ -2,7 +2,7 @@ import { Member as PrismaMember } from '@prisma/client';
 import { Guild, GuildMember, Message, MessageReaction, User } from 'discord.js';
 import { cacheService } from './cache';
 
-const COLDOWN_MS = 5 * 1000;
+const COLDOWN_MS = 90 * 1000;
 
 /// Levels
 interface Level {
@@ -87,18 +87,11 @@ async function amountXpToAddReaction(
       return;
     }
 
-    /// Message Author
-    const prismaMessageAuthor: PrismaMember | null = await cacheService.incrementMemberXp(
-      _messageAuthor,
-      XpTypes.REACTION_RECEIVE,
-      undefined,
-    );
-
-    if (!prismaMessageAuthor) {
+    if (!_messageAuthor) {
       throw new Error('Message author not found');
     }
 
-    const levelUpStatusMessageAuthor: LevelUpStatus = canLevelUp(prismaMessageAuthor, XpTypes.REACTION_RECEIVE);
+    const levelUpStatusMessageAuthor: LevelUpStatus = canLevelUp(_messageAuthor, XpTypes.REACTION_RECEIVE);
 
     /// Reaction Author
     if (!_reactionAuthor) {
@@ -186,7 +179,7 @@ async function addXpReaction(_reaction: MessageReaction, _reactionAuthor: GuildM
     const cooldown: number = Date.now();
     const levelUpStatus = await amountXpToAddReaction(cooldown, prismaReactionAuthor, prismaMessageAuthor);
 
-    if (!levelUpStatus) return;
+    if (!levelUpStatus) throw new Error('Level up status not found');
 
     if (levelUpStatus['reactionAuthor'].canLevelUp) {
       await cacheService.levelUpMember(
