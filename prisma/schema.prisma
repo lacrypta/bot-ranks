@@ -118,6 +118,7 @@ model Member {
   guild          Guild    @relation(fields: [guildId], references: [id])
   padrinoProfile Padrino? @relation(fields: [myPadrinoId], references: [id])
 
+  @@index([discordTemporalLevel(sort: Desc), discordTemporalLevelXp(sort: Desc)])
   @@map("member")
 }
 
