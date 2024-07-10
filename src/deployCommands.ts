@@ -1,6 +1,5 @@
-import { REST, Routes } from 'discord.js';
+import { REST, Routes, Client } from 'discord.js';
 import { Command } from './types/command';
-
 const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv').config();
@@ -28,21 +27,27 @@ for (const folder of commandFolders) {
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN!);
 
-export async function deployCommands() {
+export async function deployCommands(client: Client) {
   try {
     console.log('Started refreshing application (/) commands.');
-
     const commandData = commandsList.map((command) => command.data.toJSON());
 
-    await rest.put(Routes.applicationGuildCommands(process.env.DISCORD_APP_ID!, process.env.DISCORD_GUILD_ID!), {
-      body: commandData,
-    });
-
-    console.log(`Successfully reloaded ${commandsList.length} application (/) commands.`);
-    for (const command of commandsList) {
-      console.log(`Deployed command: ${command.data.name}`);
+    const guilds = await client.guilds.fetch();
+    for (const [guildId, guild] of guilds) {
+      try {
+        await rest.put(Routes.applicationGuildCommands(process.env.DISCORD_APP_ID!, guildId), {
+          body: commandData,
+        });
+        console.log(
+          `Successfully reloaded ${commandsList.length} application (/) commands for guild: ${guild.name} (${guild.id})`,
+        );
+      } catch (error) {
+        console.error(`Failed to deploy commands for guild: ${guild.name} (${guild.id})`, error);
+      }
     }
   } catch (error) {
     console.error(error);
   }
+
+  console.log(`All commands deployed.`);
 }
