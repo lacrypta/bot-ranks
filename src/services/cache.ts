@@ -514,16 +514,22 @@ class CacheService implements CacheServiceInterface {
   }
 
   async getMemberByPrismaId(_prismaMemberId: string): Promise<PrismaMember | null> {
-    console.log('[cacheService.getMemberByPrismaId] _prismaMemberId:', _prismaMemberId); // debug
+    console.log('[cacheService.ts] getMemberByPrismaId() _prismaMemberId:', _prismaMemberId); // debug
+    console.log(); // debug
     if (_prismaMemberId === null) return null;
 
     // Check if the guild exist
+    console.log('[cacheService.ts] getMemberByPrismaId() this.guild:', this.guild); // debug
+    console.log(); // debug
     if (!this.guild) return null;
 
     // Check if the member is already in the cache
+    console.log(
+      '[cacheService.ts] getMemberByPrismaId() this.membersIndexById.byPrismaId[_prismaMemberId]:',
+      this.membersIndexById.byPrismaId[_prismaMemberId],
+    ); // debug
+    console.log(); // debug
     if (this.membersIndexById.byPrismaId[_prismaMemberId]) {
-      console.log(`Member ${this.membersIndexById.byPrismaId[_prismaMemberId]!.discordDisplayName} already in cache`); // debug
-
       return this.membersIndexById.byPrismaId[_prismaMemberId]!;
     }
 
@@ -533,6 +539,8 @@ class CacheService implements CacheServiceInterface {
         id: _prismaMemberId,
       },
     });
+    console.log('[cacheService.ts] getMemberByPrismaId() prismaMember:', prismaMember); // debug
+    console.log(); // debug
 
     if (prismaMember) {
       // console.log(`Member ${prismaMember.discordDisplayName} added to cache`); // debug

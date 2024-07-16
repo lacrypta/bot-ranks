@@ -42,50 +42,50 @@ async function modalMenu(discordInteraction: CommandInteraction | ButtonInteract
 
     await discordInteraction.showModal(modal);
   } catch (error) {
-    console.error('Failed to create modal:', error);
+    console.error('[serPadrinoHelpers.ts] Failed to create modal:', error);
 
     return;
   }
 }
 
 async function createAndSendMessagePadrinoProfile(_discordInteraction: ModalSubmitInteraction) {
-  // Get inputs from modal
-  const shortTextInput: string = _discordInteraction.fields.fields.get('ser-padrino-short-text-input')!.value!;
-  const longTextInput: string = _discordInteraction.fields.fields.get('ser-padrino-long-text-input')!.value!;
-
-  // Get user information
-  const discordGuildId: string = _discordInteraction.guild!.id;
-  const discordMember: GuildMember = await _discordInteraction.guild!.members.fetch(_discordInteraction.user.id);
-  const discordMemberId: string = discordMember.id;
-  const discordMemberName: string = discordMember.displayName;
-  const discordMemberAvatar: string = discordMember.displayAvatarURL();
-
-  // Create Padrino in db
-  await createOrEditPadrinoProfile(discordGuildId, discordMemberId, shortTextInput, longTextInput);
-
-  // Create an embed message
-  const embed = new EmbedBuilder()
-    .setColor(0x0099ff)
-    .setThumbnail(discordMemberAvatar!)
-    .addFields(
-      { name: 'Nombre', value: discordMemberName, inline: true },
-      { name: 'Resumen', value: shortTextInput, inline: false },
-      { name: 'Biografía', value: longTextInput, inline: false },
-    );
-
-  // Create buttons
-  const confirmButton = new ButtonBuilder()
-    .setCustomId(`ser-padrino-confirm-button`)
-    .setLabel('Confirmar perfil')
-    .setStyle(ButtonStyle.Primary);
-  const editButton = new ButtonBuilder()
-    .setCustomId('ser-padrino-edit-button')
-    .setLabel('Editar')
-    .setStyle(ButtonStyle.Secondary);
-  const rowButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, editButton);
-
-  // Send embed message
   try {
+    // Get inputs from modal
+    const shortTextInput: string = _discordInteraction.fields.fields.get('ser-padrino-short-text-input')!.value!;
+    const longTextInput: string = _discordInteraction.fields.fields.get('ser-padrino-long-text-input')!.value!;
+
+    // Get user information
+    const discordGuildId: string = _discordInteraction.guild!.id;
+    const discordMember: GuildMember = await _discordInteraction.guild!.members.fetch(_discordInteraction.user.id);
+    const discordMemberId: string = discordMember.id;
+    const discordMemberName: string = discordMember.displayName;
+    const discordMemberAvatar: string = discordMember.displayAvatarURL();
+
+    // Create Padrino in db
+    await createOrEditPadrinoProfile(discordGuildId, discordMemberId, shortTextInput, longTextInput);
+
+    // Create an embed message
+    const embed = new EmbedBuilder()
+      .setColor(0x0099ff)
+      .setThumbnail(discordMemberAvatar!)
+      .addFields(
+        { name: 'Nombre', value: discordMemberName, inline: true },
+        { name: 'Resumen', value: shortTextInput, inline: false },
+        { name: 'Biografía', value: longTextInput, inline: false },
+      );
+
+    // Create buttons
+    const confirmButton = new ButtonBuilder()
+      .setCustomId(`ser-padrino-confirm-button`)
+      .setLabel('Confirmar perfil')
+      .setStyle(ButtonStyle.Primary);
+    const editButton = new ButtonBuilder()
+      .setCustomId('ser-padrino-edit-button')
+      .setLabel('Editar')
+      .setStyle(ButtonStyle.Secondary);
+    const rowButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, editButton);
+
+    // Send embed message
     await _discordInteraction.reply({
       content: '# Tu perfil de Padrino',
       embeds: [embed],
@@ -93,7 +93,7 @@ async function createAndSendMessagePadrinoProfile(_discordInteraction: ModalSubm
       ephemeral: true,
     });
   } catch (error) {
-    console.error('Failed to send embed message', error);
+    console.error('[serPadrinoHelpers.ts] Failed in createAndSendMessagePadrinoProfile:', error);
   }
 }
 
@@ -119,7 +119,7 @@ async function createOrEditPadrinoProfile(
       await cacheService.updatePadrino(prismaPadrino.id, _shortDescription, _longDescription);
     }
   } catch (error) {
-    console.error('Failed to create or edit padrino profile:', error);
+    console.error('[serPadrinoHelpers.ts] Failed in createOrEditPadrinoProfile:', error);
   }
 }
 
