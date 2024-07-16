@@ -10,7 +10,6 @@ const rankingLevels: Command = {
     .setDescription('Ver el ranking de niveles.') as SlashCommandBuilder,
   execute: async (_discordInteraction: CommandInteraction) => {
     const updateLevelSatus: boolean = await cacheService.updateMembersLevelsToDatabase();
-    console.log('updateLevelSatus:', updateLevelSatus);
 
     const topTen: PrismaMember[] | null = await cacheService.getMembersRankingTopTen(_discordInteraction.guild?.id!);
 
@@ -20,6 +19,7 @@ const rankingLevels: Command = {
 
     let data: string = '';
     topTen.forEach((member: PrismaMember, index: number) => {
+      if (member.discordTemporalLevelXp === 0) return;
       // Data in embed
       switch (index) {
         case 0:
