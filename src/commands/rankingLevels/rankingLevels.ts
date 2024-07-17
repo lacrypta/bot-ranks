@@ -3,6 +3,7 @@ import { CommandInteraction } from 'discord.js';
 import { SlashCommandBuilder, EmbedBuilder } from '@discordjs/builders';
 import { Member as PrismaMember } from '@prisma/client';
 import { cacheService } from '../../services/cache';
+import { sumXpLevel } from '../../services/temporalLevel';
 
 const rankingLevels: Command = {
   data: new SlashCommandBuilder()
@@ -15,38 +16,38 @@ const rankingLevels: Command = {
 
     if (!topTen) return;
 
-    const embed = new EmbedBuilder().setColor(0x0099ff);
+    const rankingEmbed = new EmbedBuilder().setColor(0x0099ff);
 
-    let data: string = '';
+    // let data: string = '';
     topTen.forEach((member: PrismaMember, index: number) => {
       if (member.discordTemporalLevelXp === 0) return;
-      // Data in embed
+      // Data in rankingEmbed
       switch (index) {
         case 0:
-          embed.addFields({
+          rankingEmbed.addFields({
             name: `:trophy: Primero`,
-            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${member.discordTemporalLevelXp}`,
+            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${sumXpLevel(member.discordTemporalLevel) + member.discordTemporalLevelXp}`,
             inline: false,
           });
           break;
         case 1:
-          embed.addFields({
+          rankingEmbed.addFields({
             name: `:second_place: Segundo`,
-            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${member.discordTemporalLevelXp}`,
+            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${sumXpLevel(member.discordTemporalLevel) + member.discordTemporalLevelXp}`,
             inline: false,
           });
           break;
         case 2:
-          embed.addFields({
+          rankingEmbed.addFields({
             name: `:third_place: Tercero`,
-            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${member.discordTemporalLevelXp}`,
+            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${sumXpLevel(member.discordTemporalLevel) + member.discordTemporalLevelXp}`,
             inline: false,
           });
           break;
         default:
-          embed.addFields({
+          rankingEmbed.addFields({
             name: `#${index + 1}`,
-            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${member.discordTemporalLevelXp}`,
+            value: `**<@${member.discordMemeberId}>**\n*Nivel:* ${member.discordTemporalLevel} - *XP:* ${sumXpLevel(member.discordTemporalLevel) + member.discordTemporalLevelXp}`,
             inline: false,
           });
           break;
@@ -69,14 +70,18 @@ const rankingLevels: Command = {
       // }
     });
 
-    // Send embed message
+    if (rankingEmbed.setFields.length === 0) {
+      rankingEmbed.setDescription('Nadie ganó experiencia.');
+    }
+
+    // Send rankingEmbed message
     try {
       await _discordInteraction.reply({
         content: '# Ranking de niveles\n',
-        embeds: [embed],
+        embeds: [rankingEmbed],
       });
     } catch (error) {
-      console.error('Failed to send embed message', error);
+      console.error('Failed to send rankingEmbed message', error);
     }
   },
 };

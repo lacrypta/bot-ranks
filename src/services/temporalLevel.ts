@@ -219,4 +219,12 @@ async function addXpReaction(_reaction: MessageReaction, _reactionAuthor: GuildM
   }
 }
 
-export { addXpMessage, addXpReaction };
+// recursive function to sum xp of level form n to 1
+function sumXpLevel(n: number): number {
+  if (n === 0) return 0;
+  if (n === 1) return levels[n.toString()]!;
+
+  return levels[n.toString()]! + sumXpLevel(n - 1);
+}
+
+export { addXpMessage, addXpReaction, sumXpLevel };
