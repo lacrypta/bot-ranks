@@ -86,7 +86,7 @@ const event: BotEvent = {
 
       if (interaction.customId === 'ser-padrino-confirm-button') {
         await interaction.update({
-          content: '# Tu perfil de Padrino\n> Confirmado',
+          content: '# Tu perfil de Padrino está confirmado :white_check_mark:',
           components: [],
         });
       } /// End Of /ser-padrino ///
