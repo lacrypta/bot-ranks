@@ -456,6 +456,32 @@ class CacheService implements CacheServiceInterface {
     }
   }
 
+  async resetLevels(): Promise<boolean> {
+    try {
+      await prisma.member.updateMany({
+        data: {
+          discordTemporalLevel: 0,
+          discordTemporalLevelXp: 0,
+          discordTemporalLevelCooldown: Date.now().toString(),
+        },
+      });
+
+      const cooldown: string = Date.now().toString();
+
+      Object.values(this.membersIndexById.byPrismaId).forEach((prismaMember: PrismaMember) => {
+        prismaMember.discordTemporalLevel = 0;
+        prismaMember.discordTemporalLevelXp = 0;
+        prismaMember.discordTemporalLevelCooldown = cooldown;
+      });
+
+      return true;
+    } catch (error) {
+      console.error(`Failed to reset levels`, error);
+
+      return false;
+    }
+  }
+
   async updatePadrinoOfMember(_discordMemberId: string, _prismaPadrinoId: string): Promise<PrismaMember | null> {
     // Update Memeber in the database
     const prismaMember: PrismaMember | null = await prisma.member.update({

@@ -36,6 +36,7 @@ export interface CacheServiceInterface {
   async incrementMemberXp(_prismaMember: PrismaMember, _xp: number, _timestamp: string | undefined, ): Promise<PrismaMember | null>;
   async levelUpMember(_prismaMember: PrismaMember, _xp: number, _level: number, _timestamp: string, ): Promise<PrismaMember | null>;
   async updateMembersLevelsToDatabase(): Promise<boolean>;
+  async resetLevels(): Promise<boolean>;
   async getMemberByDiscordId(_discordGuildId: string, _discordMemberId: string): Promise<PrismaMember | null>;
   async getMemberByPrismaId(_prismaMemberId: string): Promise<PrismaMember | null>;
   async getMembersRankingTopTen(_discordGuildId: string): Promise<PrismaMember[] | null>;
