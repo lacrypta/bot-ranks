@@ -7,8 +7,6 @@ COPY package.json pnpm-lock.yaml ./
 
 RUN npm install -g pnpm && pnpm install
 
-RUN pnpm prisma-generate
-
 COPY . .
 
 CMD ["pnpm", "dev"]
