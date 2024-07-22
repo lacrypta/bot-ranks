@@ -10,7 +10,7 @@ interface Level {
 }
 
 const levels: Level = {
-  '1': 500,
+  '1': 100,
   '2': 1000,
   '3': 3000,
   '4': 4000,
@@ -36,8 +36,8 @@ const levels: Level = {
 
 enum XpTypes {
   MESSAGE = 100,
-  REACTION_RECEIVE = 50,
-  REACTION_SEND = 25,
+  REACTION_RECEIVE = 2,
+  REACTION_SEND = 5,
 }
 
 /// Level Up
@@ -47,7 +47,13 @@ export interface LevelUpStatus {
   xpRemaining: number;
 }
 
-/// aca
+// Set to avoid processing the same reaction twice
+const processedReactions = new Set<string>();
+
+function generateReactionKey(reaction: MessageReaction, userId: string): string {
+  return `${reaction.message.id}-${reaction.emoji.name}-${userId}`;
+}
+
 function canLevelUp(member: PrismaMember, xpToAdd: number) {
   const nextLevelXp: number = levels[(member.discordTemporalLevel + 1).toString()]!;
 
@@ -176,6 +182,13 @@ async function addXpReaction(_reaction: MessageReaction, _reactionAuthor: GuildM
       throw new Error('Member not found');
     }
 
+    const reactionKey = generateReactionKey(_reaction, _reactionAuthor.id);
+
+    if (processedReactions.has(reactionKey)) {
+      console.log(`Reaction already processed: ${reactionKey}`);
+      return;
+    }
+
     const cooldown: number = Date.now();
     const levelUpStatus = await amountXpToAddReaction(cooldown, prismaReactionAuthor, prismaMessageAuthor);
 
@@ -210,6 +223,8 @@ async function addXpReaction(_reaction: MessageReaction, _reactionAuthor: GuildM
         cooldown.toString(),
       );
     }
+
+    processedReactions.add(reactionKey);
 
     return levelUpStatus;
   } catch (error) {
