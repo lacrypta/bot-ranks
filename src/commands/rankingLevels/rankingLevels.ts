@@ -20,7 +20,12 @@ const rankingLevels: Command = {
 
     // let data: string = '';
     topTen.forEach((member: PrismaMember, index: number) => {
-      if (member.discordTemporalLevelXp === 0) return;
+      if (member.discordTemporalLevelXp === 0) {
+        if (index === 0) rankingEmbed.setDescription('Nadie ganó experiencia.');
+
+        return;
+      }
+
       // Data in rankingEmbed
       switch (index) {
         case 0:
@@ -69,10 +74,6 @@ const rankingLevels: Command = {
       //     break;
       // }
     });
-
-    if (rankingEmbed.setFields.length === 0) {
-      rankingEmbed.setDescription('Nadie ganó experiencia.');
-    }
 
     // Send rankingEmbed message
     try {
